@@ -1,0 +1,84 @@
+{
+    "rooms": [
+        {
+            "room_no": "M001",
+            "is_lab": false
+        },
+        {
+            "room_no": "M002",
+            "is_lab": false
+        },
+        {
+            "room_no": "M003",
+            "is_lab": false
+        },
+        {
+            "room_no": "M004",
+            "is_lab": true
+        },
+        {
+            "room_no": "M005",
+            "is_lab": true
+        },
+        {
+            "room_no": "M101",
+            "is_lab": false
+        },
+        {
+            "room_no": "M102",
+            "is_lab": false
+        },
+        {
+            "room_no": "M103",
+            "is_lab": false
+        },
+        {
+            "room_no": "M104",
+            "is_lab": true
+        },
+        {
+            "room_no": "M105",
+            "is_lab": true
+        },        
+        {
+            "room_no": "M201",
+            "is_lab": false
+        },
+        {
+            "room_no": "M202",
+            "is_lab": false
+        },
+        {
+            "room_no": "M203",
+            "is_lab": false
+        },
+        {
+            "room_no": "M204",
+            "is_lab": true
+        },
+        {
+            "room_no": "M205",
+            "is_lab": true
+        },        
+        {
+            "room_no": "M301",
+            "is_lab": false
+        },
+        {
+            "room_no": "M302",
+            "is_lab": false
+        },
+        {
+            "room_no": "M303",
+            "is_lab": false
+        },
+        {
+            "room_no": "M304",
+            "is_lab": true
+        },
+        {
+            "room_no": "M305",
+            "is_lab": true
+        }
+    ]
+}

@@ -1,0 +1,108 @@
+{
+    "faculty": [
+        {
+            "faculty_id": "RRS",
+            "name": "Rajni ranjan singh"
+        },
+        {
+            "faculty_id": "TS",
+            "name": "Tej Singh"
+        },
+        {
+            "faculty_id": "PD",
+            "name": "Pawan Dubey"
+        },
+        {
+            "faculty_id": "BSR",
+            "name": "Bhagat Singh Raghuwansi"
+        },
+        {
+            "faculty_id": "SD",
+            "name": "Sumit Dhariwal"
+        },
+        {
+            "faculty_id": "SM",
+            "name": "Shubha misra"
+        },
+        {
+            "faculty_id": "SKS",
+            "name": "Sunil Kumar shukla"
+        },
+        {
+            "faculty_id": "VT",
+            "name": "Vibha tiwari"
+        },
+        {
+            "faculty_id": "AK",
+            "name": "Arun kumar"
+        },
+        {
+            "faculty_id": "SK",
+            "name": "Sanjeev khanna"
+        },
+        {
+            "faculty_id": "MSA",
+            "name": "Mir Shahnawaz ahmad"
+        },
+        {
+            "faculty_id": "NA",
+            "name": "Neelam Arya"
+        },
+        {
+            "faculty_id": "RS",
+            "name": "Ramnaresh sharma "
+        },
+        {
+            "faculty_id": "AB",
+            "name": "Abhishek Bhatt"
+        },
+        {
+            "faculty_id": "SKD",
+            "name": "Sanjeev Kumar Dwivedi"
+        },
+        {
+            "faculty_id": "SC",
+            "name": "Sweta Chauhan"
+        },
+        {
+            "faculty_id": "HSP",
+            "name": "Hardev singh pal"
+        },
+        {
+            "faculty_id": "SS",
+            "name": "Shipra Shukla"
+        },
+        {
+            "faculty_id": "RK",
+            "name": "Rahul Kumar "
+        },
+        {
+            "faculty_id": "NM",
+            "name": "Neeraj Mishra"
+        },
+        {
+            "faculty_id": "NP",
+            "name": "Neha para"
+        },
+        {
+            "faculty_id":"PT",
+            "name":"Pooja Tripathi"
+        },
+        {
+            "faculty_id":"GH",
+            "name":"Geetika Hazra"
+        },
+        {
+            "faculty_id":"ASD",
+            "name":"Aditi Samadhiya"
+        },
+        {
+            "faculty_id":"KS",
+            "name":"khemchand shakywar"
+        },
+        {
+            "faculty_id":"AS",
+            "name":"Ashish Singh"
+        }
+    ]
+}
