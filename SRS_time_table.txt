@@ -1,0 +1,127 @@
+
+            +---------------------------------------------+
+            | +-----------------------------------------+ |
+            | | SOFTWARE REQUIREMENT SPECIFICATIONS(SRS)| |
+            | +-----------------------------------------+ |
+            +---------------------------------------------+
+
+                 +-----------------------------------+
+                 | TIME-TABLE MANAGEMENT APPLICATION |
+                 +-----------------------------------+
+
+1.Introduction
+	1.1 Purpose
+	1.2 Intended Audience
+	1.3 Scope
+	1.4 Definitions
+2. Overall Descriptions
+	2.1 User Interface
+	2.2 System Interfacce
+	2.3 Constraints, assumptions and dependencies 
+	2.4 User Characteristics
+3. System Features and requirement
+	3.1 Functional Requirement
+	3.2 Use case 
+	3.3 External interface Requirement
+	3.4 Logical database Requirement
+	3.5 Nonfunctional Requirement
+4.Deliver for Approval  
+
+
+
+
+(1) INTRODUCTION:-
+		1.1 Purpose:-
+			-> Time table making software  which schdule classes for multiple branch and multiple sem
+			-> Time table should be user friendly means user can easily understand Time table.
+			-> Time table should be easy to use means user can easily use Time table.
+			-> Time table should be optimal  means after making Time table all slot should be editable.
+		1.2 Intended Audience:-
+			-> Collages  who are making own timem-table manually
+			-> Schools  where multiple classes divided into multiple Sections
+		1.3 Scope:-
+			-> Software are used in all collages, universites and  schools.
+			-> this is the flexible  software so it is used widely.
+		1.4 Definations:-
+			-> A Time-Table Making Software is a kind of application where  we can schdule classes basis on below inputs.
+			-> A course Array is the array of course where we need to  define all course basis on name, code, type ,credit.
+			-> A Branch Array is the all branch over a department .
+			-> A sem Array is the  all sems  over a branch .
+			-> A faculty array is array of all faculty in a department with name and a list of course which can be taught in classes.
+			-> A classroom array is the array of all classroom,lab which is allocated to a department it contains name, type of classroom.
+			-> A days array is the array of days of a week  which have all days when classes can be scheduled.
+			-> A time_slot is the array of time duration with difference of 1 hour.
+			-> A Master_time_table is the final time-table for students and faculty.
+			-> A faculty_time_table is the time-table which is specilied for faculity.
+			-> A classroom_time_Table is the time-table which is specilied  for classroom.
+
+(2) OVERALL DESCRIPTIONS:-
+		2.1 User Interface:-
+			-> it should be a web application.
+			-> user interface  of the  application should be optimized and easy to understand.
+			-> There should not need to be crashes and lags.
+			-> color coding should be optimized and well used.
+			-> Final time-tables  should be a  2D table .
+			-> there should  all three  type  of timetable should be present .
+			-> time table can be import and export.
+			-> Any cell of time-table should be editable in Master_time_table , faculty_time_table , classroom_time_Table.
+		2.2 System Interface:-
+			-> System Interface should be ease to understand.
+			-> comments should be used in each important steps.
+			-> Descriptions of all varibles should be present.
+		2.3 Constraints , assumptions and dependencies:-
+			->Soft constraints:-
+					-->	Ensure a more or less equal load for all faculties.
+					--> Allocate the required time (hours per week) to every batch.
+					--> Minimize classes during specific time slots: 09:00-10:00, 4:00-5:00, and 5:00-6:00.
+			->Hard Constraints:-
+					-->	Avoid scheduling two classes for the same faculty at the same time in different classrooms.
+					--> Avoid scheduling two consecutive classes for a faculty in the same branch and semester.
+					--> Ensure the number of scheduled classes matches the credits for theory classes.
+					--> Schedule each lab course once a week.
+					--> Reserve the time slot 01:00-02:00 for a lunch break.
+					--> Adhere to non-editable cells where scheduling any class is not allowed.
+					--> Ensure that the number of classes per day does not exceed 8.
+			-> assumptions:-
+					--> if there any change to be want to be made so it should of possible and easy.
+			-> dependencies:-
+					--> there should be list of all software dependencies present.
+					--> application should be indipendent from particular inputs.
+		2.4 User Characteristics:-
+			->  there are only one type of user is present who is naive user access of his below mention:-
+				-> user can be input all input field .
+				-> user can be export and import all type of file which is used.
+				-> user can be user can be use all type of Functionalilty provided by software.
+
+(3) SYSTEM FEATURES AND REQUIREMENTS:-
+		3.1 Functional Requirement:-
+			-> application should  take all type of inputs .
+			-> it confirm all type of inputs and also  print it on screen in further pages.
+			-> it genrate time table and print it on screen.
+			-> there should be Functionalilty of generate faculity and classroom time-table.
+			-> there  should be functionality of  regenerate time-table .
+			-> there should be Functionalilty of export time-table in csv format or excell sheet format.
+			-> There should be functionality to modify time table after generation .
+		3.2 Use Case:-
+			-> software are used for schdule classes .
+		3.3 External interface Requirement\
+			->
+			->
+			->
+		3.4 Logical database Requirement
+			->
+			->
+			->
+		3.5 Nonfunctional Requirement
+			->
+			->
+			->
+
+
+(4) DELIVER FOR APPROVAL:-
+		-->SRS are approved by "" sir and ""sir 
+	
+		
+		
+	
+	
