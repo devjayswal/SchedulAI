@@ -7,6 +7,10 @@ from controllers.timetable_controller import (
     delete_timetable,
 )
 from models.timetable import TimetableCreate, TimetableResponse, TimetableStatus
+import asyncio
+from utils.job_manager import create_job, get_queue, set_status, get_status
+from ppo.train import run_training # Assuming this is the function that runs the training
+
 
 router = APIRouter(prefix="/timetable", tags=["Timetable"])
 
