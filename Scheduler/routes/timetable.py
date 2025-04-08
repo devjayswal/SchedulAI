@@ -1,23 +1,18 @@
 from fastapi import APIRouter, HTTPException
-from controllers.timetable_controller import (
-    create_timetable,
-    get_timetable_by_id,
-    get_all_timetables,
-    update_timetable,
-    delete_timetable,
-)
+from controllers.timetable import create_timetable,get_timetable_by_id,get_all_timetables,update_timetable,delete_timetable
+
 from models.timetable import TimetableCreate, TimetableResponse, TimetableStatus
-import asyncio
-from utils.job_manager import create_job, get_queue, set_status, get_status
-from ppo.train import run_training # Assuming this is the function that runs the training
+from validation.input_validation import ScheduleInput
 
 
 router = APIRouter(prefix="/timetable", tags=["Timetable"])
 
 @router.post("/", response_model=TimetableStatus)
-async def create_timetable_route(timetable: TimetableCreate):
+async def create_timetable_route(payload: ScheduleInput):
     """Create a new timetable asynchronously (returns status updates)."""
-    return await create_timetable(timetable)
+    # Validate the input data
+    job_id = await create_timetable(payload)
+    return {"job_id": job_id, "status": "job created"}
 
 @router.get("/{timetable_id}", response_model=TimetableResponse)
 async def get_timetable_route(timetable_id: str):

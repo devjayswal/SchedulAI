@@ -1,9 +1,8 @@
-from pydantic import BaseModel, Field
+class Classroom:
+    def __init__(self, id=None, code="", type=""):
+        self.id = id  # MongoDB _id
+        self.code = code
+        self.type = type  # Either "Theory" or "Computer Lab"
 
-class Classroom(BaseModel):
-    id: str | None = Field(default=None, alias="_id")
-    code: str
-    type: str  # Either "Theory" or "Computer Lab"
-    
-    class Config:
-        from_attributes = True
+    def __repr__(self):
+        return f"Classroom({self.code}, Type: {self.type})"
