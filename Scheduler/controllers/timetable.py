@@ -1,14 +1,33 @@
 from models.timetable import TimetableCreate, TimetableResponse, TimetableStatus
 from Scheduler.utils.database import db
 from bson import ObjectId
+import asyncio
+from utils.job_manager import create_job, get_queue, set_status, get_status
+from ppo.train import run_training
 
 timetable_collection = db["timetables"]
 
+
+async def _run_job(job_id: str, queue: asyncio.Queue, data):
+        try:
+            set_status(job_id, "running")
+            # run_training yields log messages
+            async for msg in run_training(data):
+                await queue.put(msg)
+            set_status(job_id, "completed")
+            await queue.put("DONE")
+        except Exception as e:
+            set_status(job_id, "failed")
+            await queue.put(f"ERROR: {e}")
+            await queue.put("DONE")
+
 # Create Timetable (Async Status Update)
 async def create_timetable(timetable_data: TimetableCreate):
-    result = await timetable_collection.insert_one(timetable_data.dict())
-    timetable_id = str(result.inserted_id)
-    return {"status": "processing", "message": "Timetable generation in progress", "timetable_id": timetable_id}
+    job_id = await create_job("timetable", timetable_data.dict())
+    queue = get_queue(job_id)
+
+    asyncio.create_task(_run_job(queue, timetable_data.dict()))
+    return job_id
 
 # Get Specific Timetable
 async def get_timetable_by_id(timetable_id: str):

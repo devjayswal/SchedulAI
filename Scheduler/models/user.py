@@ -1,11 +1,10 @@
-from pydantic import BaseModel, EmailStr, Field
+class User:
+    def __init__(self, id=None, name="", role="", institute="", institute_mail=""):
+        self.id = id  # MongoDB _id
+        self.name = name
+        self.role = role  # Example: "Admin", "Faculty", "Student"
+        self.institute = institute
+        self.institute_mail = institute_mail
 
-class User(BaseModel):
-    id: str | None = Field(default=None, alias="_id")
-    name: str
-    role: str  # Example: "Admin", "Faculty", "Student"
-    institute: str
-    institute_mail: EmailStr
-
-    class Config:
-        from_attributes = True
+    def __repr__(self):
+        return f"User({self.name}, {self.role}, {self.institute})"

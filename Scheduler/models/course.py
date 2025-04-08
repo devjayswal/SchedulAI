@@ -1,14 +1,13 @@
-from pydantic import BaseModel, Field
+class Course:
+    def __init__(self, id=None, subject_code="", branch="", sem=0, subject_name="", subject_type="", credits=0, faculty_code=""):
+        self.id = id  # MongoDB _id
+        self.subject_code = subject_code
+        self.branch = branch
+        self.sem = sem
+        self.subject_name = subject_name
+        self.subject_type = subject_type  # "theory" or "practical"
+        self.credits = credits
+        self.faculty_code = faculty_code  # Can be empty if not assigned
 
-class Course(BaseModel):
-    id: str | None = Field(default=None, alias="_id")
-    subject_code: str
-    branch: str
-    sem: int
-    subject_name: str
-    subject_type: str  # "theory" or "practical"
-    credits: int
-    faculty_code: str  # Can be empty if not assigned
-
-    class Config:
-        from_attributes = True
+    def __repr__(self):
+        return f"Course({self.subject_name}, {self.subject_type}, Credits: {self.credits})"
