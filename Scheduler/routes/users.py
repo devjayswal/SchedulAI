@@ -1,24 +1,24 @@
 from fastapi import APIRouter, HTTPException
-from controllers.user_controller import (
+from controllers.user import (
     create_user,
     get_all_users,
     get_user,
     update_user,
     delete_user,
 )
-from models.user import UserCreate, UserResponse
+from models.user import User  # Using the existing User class
 
 router = APIRouter(prefix="/user", tags=["User"])
 
-@router.post("/", response_model=UserResponse)
-async def create_user_route(user: UserCreate):
+@router.post("/")
+async def create_user_route(user: User):
     return await create_user(user)
 
 @router.get("/")
 async def get_all_users_route():
     return await get_all_users()
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}")
 async def get_user_route(user_id: str):
     user = await get_user(user_id)
     if not user:
@@ -26,7 +26,7 @@ async def get_user_route(user_id: str):
     return user
 
 @router.put("/{user_id}")
-async def update_user_route(user_id: str, user: UserCreate):
+async def update_user_route(user_id: str, user: User):
     if not await update_user(user_id, user):
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "User updated successfully"}

@@ -1,17 +1,34 @@
-import gym
+import torch
+import asyncio
+from env import TimetableEnv
+from model import load_model, save_model
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
-from env import TimetableEnv
-from model import save_model
+from stable_baselines3.common.callbacks import EvalCallback
+from ppo.hyperparams import policy_kwargs, ppo_kwargs, train_config
 
-# Create and wrap the environment
-env = make_vec_env(lambda: TimetableEnv(num_courses=5, num_slots=6, num_classrooms=3), n_envs=1)
+async def run_training(data):
+    """Load or initialize model and start PPO training with incoming data."""
+    
+    # Extract environment config from the data
+    num_courses = sum(len(branch["courses"]) for branch in data["branches"])
+    num_slots = len(data["time_slots"])
+    num_classrooms = len(data["classrooms"])
 
-# Initialize PPO model
-model = PPO("MlpPolicy", env, verbose=1)
+    # Create the environment using the extracted data
+    env = make_vec_env(lambda: TimetableEnv(num_courses, num_slots, num_classrooms, data), 
+                       n_envs=1)  # Assuming single environment instance for now
 
-# Train the model
-model.learn(total_timesteps=10000)
+    # Load or initialize model
+    model = load_model(env, path="ppo_timetable.pth", policy_kwargs=policy_kwargs, **ppo_kwargs)
 
-# Save the trained model
-save_model(model, "ppo_timetable.pth")
+    eval_cb = EvalCallback(env, eval_freq=train_config["eval_freq"],
+                           best_model_save_path=train_config["best_model_save_path"],
+                           log_path=train_config["log_path"])
+
+    for step in range(0, train_config["total_timesteps"], train_config["log_interval"]):
+        model.learn(total_timesteps=train_config["log_interval"], callback=eval_cb)
+        save_model(model, "ppo_timetable.pth")
+        yield f"Trained up to {step + train_config['log_interval']} timesteps..."
+
+    yield "Training complete."
