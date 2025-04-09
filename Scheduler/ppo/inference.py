@@ -15,4 +15,13 @@ obs = env.reset()
 for _ in range(10):
     action, _states = model.predict(obs)
     obs, rewards, done, info = env.step(action)
+    
     env.render()
+
+    # Reset if episode is done
+    if done.any():  # `done` is an array in vectorized envs
+        obs = env.reset()
+        print("Episode finished. Resetting environment.")
+    else:
+        print(f"Action taken: {action}, Reward: {rewards}, Done: {done}")
+        print(f"Current observation: {obs}")

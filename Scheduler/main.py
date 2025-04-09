@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from routes.user import router as user_router
+from routes.users import router as user_router
 from routes.faculty import router as faculty_router
 from routes.classroom import router as classroom_router
 from fastapi.middleware.cors import CORSMiddleware

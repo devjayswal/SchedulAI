@@ -80,8 +80,8 @@
 					--> Ensure the number of scheduled classes matches the credits for theory classes.
 					--> Schedule each lab course once a week.
 					--> Reserve the time slot 01:00-02:00 for a lunch break.
-					--> Adhere to non-editable cells where scheduling any class is not allowed.
 					--> Ensure that the number of classes per day does not exceed 8.
+					--> Adhere to non-editable cells where scheduling any class is not allowed.
 			-> assumptions:-
 					--> if there any change to be want to be made so it should of possible and easy.
 			-> dependencies:-

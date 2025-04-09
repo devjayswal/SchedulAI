@@ -4,6 +4,7 @@ from bson import ObjectId
 import asyncio
 from utils.job_manager import create_job, get_queue, set_status, get_status
 from ppo.train import run_training
+from serializers.jsonToClass import jsonToClass
 
 timetable_collection = db["timetables"]
 
@@ -23,6 +24,9 @@ async def _run_job(job_id: str, queue: asyncio.Queue, data):
 
 # Create Timetable (Async Status Update)
 async def create_timetable(timetable_data: TimetableCreate):
+
+    # serilize  the data to class
+    timetable_object = jsonToClass(timetable_data.dict())
     job_id = await create_job("timetable", timetable_data.dict())
     queue = get_queue(job_id)
 

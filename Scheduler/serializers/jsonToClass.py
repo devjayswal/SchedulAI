@@ -1,23 +1,59 @@
-# lets create a function that will conver the json to class object
-from models.timetable import Timetable
-from models import Course, Faculty, Classroom, User
-from typing import Dict, Any, List, Optional
+from models import User, Course, Faculty, Classroom
+from timetable import Timetable  # Import your Timetable class
+import uuid
 
-import json
-from bson import ObjectId
-from datetime import datetime
+def jsonToClass(json_data):
+    print("Starting jsonToClass function...")
 
-
-async def jsonToTimeTableObject( json_data: Dict[str, Any]) -> Timetable:
-    # Convert JSON to Timetable object
+    # Create Timetable instance
     timetable = Timetable(
-        id=str(json_data.get("_id", "")),
-        name=json_data.get("name", ""),
-        description=json_data.get("description", ""),
-        courses=[Course(**course) for course in json_data.get("courses", [])],
-        faculties=[Faculty(**faculty) for faculty in json_data.get("faculties", [])],
-        classrooms=[Classroom(**classroom) for classroom in json_data.get("classrooms", [])],
-        users=[User(**user) for user in json_data.get("users", [])],
+        id=str(uuid.uuid4()),
     )
+    print(f"Created Timetable instance with ID: {timetable.id}")
 
+    # Add faculty members
+    faculty_dict = {}
+    print("Processing faculty members...")
+    for f in json_data["faculty"]:
+        faculty_obj = Faculty(id=f["id"], name=f["name"], email=f["email"])
+        faculty_dict[f["id"]] = faculty_obj
+        timetable.faculty.append(faculty_obj)
+        print(f"Added Faculty: {faculty_obj}")
+
+    # Add classrooms
+    classroom_dict = {}
+    print("Processing classrooms...")
+    for c in json_data["classrooms"]:
+        classroom_obj = Classroom(id=c["id"], type=c["type"])
+        classroom_dict[c["id"]] = classroom_obj
+        timetable.classrooms.append(classroom_obj)
+        print(f"Added Classroom: {classroom_obj}")
+
+    # Process branches and courses
+    print("Processing branches and courses...")
+    for branch in json_data["branches"]:
+        branch_name = branch["branch_name"]
+        sem = branch["semester"]
+        timetable.branch = branch_name
+        timetable.sem = sem
+        print(f"Processing Branch: {branch_name}, Semester: {sem}")
+        
+        # Initialize timetable structure
+        if branch_name not in timetable.timetables:
+            timetable.timetables[branch_name] = timetable._init_timetable()
+            print(f"Initialized timetable structure for branch: {branch_name}")
+
+        for course in branch["courses"]:
+            # Create Course object
+            course_obj = Course(
+                subject_code=course["subject_code"],
+                subject_name=course["subject_name"],
+                subject_type=course["subject_type"],
+                credits=course["credits"],
+                faculty_id=course["faculty_id"]
+            )
+            timetable.courses.append(course_obj)
+            print(f"Added Course: {course_obj}")
+
+    print("Finished processing. Returning Timetable instance.")
     return timetable
