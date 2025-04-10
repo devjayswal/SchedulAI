@@ -2,8 +2,8 @@ import numpy as np
 import gym
 from gym import spaces
 from collections import defaultdict
-from domain import Course, Faculty, Classroom
-from models import Timetable, TimetableEntry
+from ppo.domain import Course, Faculty, Classroom
+from models.Timetable import Timetable, TimetableEntry
 
 class TimetableEnv(gym.Env):
     def __init__(self, timetable: Timetable, max_steps=100):

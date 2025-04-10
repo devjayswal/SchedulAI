@@ -1,9 +1,9 @@
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from routes.users import router as user_router
-from routes.faculty import router as faculty_router
-from routes.classroom import router as classroom_router
+# from routes.users import router as user_router
+# from routes.faculty import router as faculty_router
+# from routes.classroom import router as classroom_router
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from utils.log_generator import log_generator
@@ -26,9 +26,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(user_router)
-app.include_router(faculty_router)
-app.include_router(classroom_router)
+# app.include_router(user_router)
+# app.include_router(faculty_router)
+# app.include_router(classroom_router)
 app.include_router(timetable_router)
 
 @app.get("/")

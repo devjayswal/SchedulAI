@@ -6,12 +6,12 @@ from controllers.user import (
     update_user,
     delete_user,
 )
-from models.user import User  # Using the existing User class
+from models.user import User  # SQLAlchemy model
 
 router = APIRouter(prefix="/user", tags=["User"])
 
 @router.post("/")
-async def create_user_route(user: User):
+async def create_user_route(user: dict):  # Accepts a dictionary instead of a Pydantic model
     return await create_user(user)
 
 @router.get("/")
@@ -26,7 +26,7 @@ async def get_user_route(user_id: str):
     return user
 
 @router.put("/{user_id}")
-async def update_user_route(user_id: str, user: User):
+async def update_user_route(user_id: str, user: dict):  # Accepts a dictionary
     if not await update_user(user_id, user):
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "User updated successfully"}
