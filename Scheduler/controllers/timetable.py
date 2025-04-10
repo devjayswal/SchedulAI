@@ -1,5 +1,5 @@
-from models.timetable import TimetableCreate, TimetableResponse, TimetableStatus
-from Scheduler.utils.database import db
+from models.Timetable import Timetable
+from utils.database import db
 from bson import ObjectId
 import asyncio
 from utils.job_manager import create_job, get_queue, set_status, get_status
@@ -23,15 +23,17 @@ async def _run_job(job_id: str, queue: asyncio.Queue, data):
             await queue.put("DONE")
 
 # Create Timetable (Async Status Update)
-async def create_timetable(timetable_data: TimetableCreate):
+# Create Timetable (Async Status Update)
+async def create_timetable(timetable_data: dict):  # Accepts raw dictionary
+    # Serialize the data to class if needed
+    timetable_object = jsonToClass(timetable_data)
 
-    # serilize  the data to class
-    timetable_object = jsonToClass(timetable_data.dict())
-    job_id = await create_job("timetable", timetable_data.dict())
+    job_id = await create_job("timetable", timetable_data)  # No need to call .dict()
     queue = get_queue(job_id)
 
-    asyncio.create_task(_run_job(queue, timetable_data.dict()))
-    return job_id
+    asyncio.create_task(_run_job(job_id, queue, timetable_data))  # Fix missing job_id
+    return {"job_id": job_id}
+
 
 # Get Specific Timetable
 async def get_timetable_by_id(timetable_id: str):
@@ -46,9 +48,10 @@ async def get_all_timetables():
     return {"timetable_ids": [str(t["_id"]) for t in timetables]}
 
 # Update Timetable
-async def update_timetable(timetable_id: str, updated_data: TimetableCreate):
-    result = await timetable_collection.update_one({"_id": ObjectId(timetable_id)}, {"$set": updated_data.dict()})
+async def update_timetable(timetable_id: str, updated_data: dict):
+    result = await timetable_collection.update_one({"_id": ObjectId(timetable_id)}, {"$set": updated_data})
     return result.modified_count > 0
+
 
 # Delete Timetable
 async def delete_timetable(timetable_id: str):

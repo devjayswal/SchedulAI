@@ -1,7 +1,7 @@
 import torch
 import asyncio
-from env import TimetableEnv
-from model import load_model, save_model
+from ppo.env import TimetableEnv
+from ppo.model import load_model, save_model
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback

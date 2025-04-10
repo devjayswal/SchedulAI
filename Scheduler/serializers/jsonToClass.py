@@ -1,5 +1,5 @@
 from models import User, Course, Faculty, Classroom
-from timetable import Timetable  # Import your Timetable class
+from models.Timetable import Timetable  # Import your Timetable class
 import uuid
 
 def jsonToClass(json_data):
