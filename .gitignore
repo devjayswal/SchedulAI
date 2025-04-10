@@ -43,3 +43,4 @@ frontend/next-env.d.ts
 
 Scheduler/myenv
 Scheduler/.env
+*__pycache__/*
