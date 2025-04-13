@@ -44,3 +44,7 @@ frontend/next-env.d.ts
 Scheduler/myenv
 Scheduler/.env
 *__pycache__/*
+*.log
+*.sqlite3
+*.pth
+tb_logs

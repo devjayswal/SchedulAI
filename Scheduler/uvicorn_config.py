@@ -5,8 +5,8 @@ import uvicorn
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",  # Replace "main" with your FastAPI filename (without .py)
-        host="0.0.0.0",
+        host="localhost",
         port=8000,
         reload=True,  # Auto-reload in development
-        workers=4  # Adjust based on your CPU cores
+        # workers=4  # Adjust based on your CPU cores
     )

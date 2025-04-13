@@ -10,6 +10,8 @@ from utils.log_generator import log_generator
 import time
 from utils.job_manager import create_job, get_queue, set_status, get_status
 from routes.timetable import router as timetable_router
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 # Load environment variables
 load_dotenv()
@@ -17,6 +19,7 @@ load_dotenv()
 PORT = int(os.getenv("PORT", 8000))  # Default to 8000 if not found
 
 app = FastAPI(title="Timetable Scheduler API", version="1.0.0")
+app.mount("/static", StaticFiles(directory="public"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,7 +36,7 @@ app.include_router(timetable_router)
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Timetable Scheduler API"}
+    return FileResponse(os.path.join("public", "index.html"))
 
 @app.get("/logs/{job_id}")
 async def stream_logs(job_id: str):
