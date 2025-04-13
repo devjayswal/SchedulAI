@@ -1,6 +1,8 @@
 import torch
 from stable_baselines3 import PPO
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 def save_model(model: PPO, path: str = "ppo_timetable.pth"):
     """Save the model policy and optimizer for continuous learning."""
     torch.save({
@@ -11,7 +13,7 @@ def save_model(model: PPO, path: str = "ppo_timetable.pth"):
 
 def load_model(env, path="ppo_timetable.pth", policy_kwargs=None, **ppo_kwargs) -> PPO:
     """Load a PPO model, restoring policy and optimizer if available."""
-    model = PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, **ppo_kwargs, verbose=1)
+    model = PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, **ppo_kwargs, verbose=1, device=device)
     
     try:
         checkpoint = torch.load(path)

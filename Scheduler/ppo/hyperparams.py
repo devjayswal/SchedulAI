@@ -1,6 +1,6 @@
 import torch
 policy_kwargs = dict(
-    net_arch=[dict(pi=[256, 256], vf=[256, 256])],
+    net_arch=dict(pi=[64, 64], vf=[64, 64]) ,
     activation_fn=torch.nn.ReLU
 )
 
@@ -18,11 +18,13 @@ ppo_kwargs = dict(
 )
 
 train_config = {
-    "total_timesteps": 1_000_000,
-    "eval_freq": 50_000,
-    "best_model_save_path": "./best/",
-    "log_path": "./logs/"
+    "total_timesteps": 100000,  # Example value
+    "log_interval": 1000,  # Add this line
+    "eval_freq": 5000,
+    "best_model_save_path": "models/best_model",
+    "log_path": "logs/",
 }
+
 
 env_config = {
     "num_courses": 5,

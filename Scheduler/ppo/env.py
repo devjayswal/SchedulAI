@@ -1,139 +1,259 @@
 import numpy as np
-import gym
-from gym import spaces
+import gymnasium as gym
+import logging
+from gymnasium.spaces import MultiDiscrete, Box
 from collections import defaultdict
-from ppo.domain import Course, Faculty, Classroom
-from models.Timetable import Timetable, TimetableEntry
+from models.Course import Course
+from models.Faculty import Faculty
+from models.Classroom import Classroom
+from models.Timetable import Timetable, TimetableEntry, ClassTimetable
+import random
+
+# Configure Logging
+env_logger = logging.getLogger("TimetableEnv")
+env_logger.setLevel(logging.INFO)
+handler = logging.FileHandler("logs/env.log")
+env_logger.addHandler(handler)
 
 class TimetableEnv(gym.Env):
     def __init__(self, timetable: Timetable, max_steps=100):
-        super(TimetableEnv, self).__init__()
+        super().__init__()
+        self.timetable = timetable
 
-        self.timetable = timetable  # Timetable object to store results
-        self.num_courses = len(timetable.courses)
-        self.num_slots = len(timetable.timetables[next(iter(timetable.timetables))])  # Assuming all branches have same slots
-        self.num_classrooms = len(timetable.classrooms)
-        self.max_steps = max_steps
+        # dimensions
+        self.num_courses       = len(timetable.courses)
+        self.num_days          = len(timetable.days)
+        self.num_slots_per_day = len(timetable.time_slots)
+        self.num_classrooms    = len(timetable.classrooms)
+        self.num_flat_slots    = self.num_days * self.num_slots_per_day
+        self.max_steps         = max_steps
 
-        # Define action space: (course_index, time_slot, classroom)
-        self.action_space = spaces.MultiDiscrete([self.num_courses, self.num_slots, self.num_classrooms])
-        
-        # Define observation space
-        self.observation_space = spaces.Box(low=0, high=self.num_courses, shape=(self.num_slots * self.num_classrooms,), dtype=np.int32)
+        # action & observation spaces
+        self.action_space = MultiDiscrete((
+            self.num_courses,
+            self.num_flat_slots,
+            self.num_classrooms,
+        ))
+        self.observation_space = Box(
+            low=0,
+            high=self.num_courses,
+            shape=(self.num_flat_slots * self.num_classrooms,),
+            dtype=np.int32,
+        )
 
-        # Tracking schedules
-        self.faculty_schedule = defaultdict(set)  # {faculty_id: {time_slots}}
-        self.classroom_schedule = defaultdict(set)  # {classroom_id: {time_slots}}
+        # conflict trackers
+        self.faculty_schedule   = defaultdict(set)  # (day, slot_str)
+        self.classroom_schedule = defaultdict(set)  # (day, slot_str)
+
+        # per-course session counts
+        # each value is {'theory': int, 'lab': int}
+        self.sessions_scheduled = defaultdict(lambda: {'theory': 0, 'lab': 0})
 
         self.reset()
 
-    def is_valid_action(self, course_index, time_slot, classroom):
-        """ Checks all constraints before scheduling a course """
+    def is_valid_action(self, course_index, day, time_slot, classroom):
+        """Check all constraints before scheduling."""
         course = self.timetable.courses[course_index]
-        faculty_id = course.faculty_id
-        classroom_id = self.timetable.classrooms[classroom].id
+        credits     = course.credits
+        ctype       = course.subject_type  # "theory" or "lab"
+        faculty_id  = course.faculty_id
+        classroom_obj = self.timetable.classrooms[classroom]
+        room_type   = classroom_obj.type     # "theory" or "lab"
 
-        # HARD CONSTRAINTS:
-        # 1. Avoid scheduling two classes for the same faculty at the same time
-        if time_slot in self.faculty_schedule[faculty_id]:
-            return False, -10  # Conflict penalty
+        # —— 1) Session‑count constraints ——
+        if ctype == "theory":
+            # theory courses: need exactly `credits` sessions
+            if self.sessions_scheduled[course_index]['theory'] >= credits:
+                return False, -10
 
-        # 2. Avoid consecutive classes for the same faculty
-        if (time_slot - 1 in self.faculty_schedule[faculty_id]) or (time_slot + 1 in self.faculty_schedule[faculty_id]):
-            return False, -5  # Consecutive class penalty
+        else:  # lab course
+            # lab session?
+            slot_idx = self.timetable.time_slots.index(time_slot)
+            is_lab_session = (room_type == "lab")
+            if is_lab_session:
+                # only 1 lab session
+                if self.sessions_scheduled[course_index]['lab'] >= 1:
+                    return False, -10
+                # must fit two consecutive slots
+                if slot_idx == self.num_slots_per_day - 1:
+                    return False, -10
+            else:
+                # theory part of a lab course: credits-1 sessions
+                if self.sessions_scheduled[course_index]['theory'] >= (credits - 1):
+                    return False, -10
 
-        # 3. Avoid double-booking a classroom
-        if time_slot in self.classroom_schedule[classroom_id]:
+        # —— 2) Faculty & classroom conflict checks ——
+        # single‑slot check
+        if (day, time_slot) in self.faculty_schedule[faculty_id]:
+            return False, -10
+        if (day, time_slot) in self.classroom_schedule[classroom_obj.code]:
             return False, -10
 
-        # 4. Reserve 1:00-2:00 PM for lunch (assuming 13:00-14:00 is slot index 4)
-        if time_slot == 4:
+        # consecutive faculty‑break check
+        tsi = self.timetable.time_slots.index(time_slot)
+        if tsi > 0:
+            prev_slot = self.timetable.time_slots[tsi - 1]
+            if (day, prev_slot) in self.faculty_schedule[faculty_id]:
+                return False, -5
+        if tsi < self.num_slots_per_day - 1:
+            next_slot = self.timetable.time_slots[tsi + 1]
+            if (day, next_slot) in self.faculty_schedule[faculty_id]:
+                return False, -5
+
+        # for lab session, also check the *second* slot
+        if ctype == "lab" and room_type == "lab":
+            next_slot = self.timetable.time_slots[tsi + 1]
+            if (day, next_slot) in self.faculty_schedule[faculty_id]:
+                return False, -10
+            if (day, next_slot) in self.classroom_schedule[classroom_obj.code]:
+                return False, -10
+
+        # lunch break
+        if time_slot == "12:00-13:00":
             return False, -10
 
-        # SOFT CONSTRAINTS:
-        # 5. Minimize classes in specific slots (09:00-10:00, 16:00-17:00, 17:00-18:00)
-        if time_slot in {0, 8, 9}:  # Assuming these are the indices
-            return True, -2  # Small penalty
+        # edge‑slot penalty
+        if time_slot in {"09:00-10:00", "15:00-16:00"}:
+            return True, -2
 
-        return True, 1  # Valid action with reward
+        return True, 1
 
     def step(self, action):
-        course_index, time_slot, classroom = action
-        reward = 0
-        done = False
+        course_index, flat_ts, classroom = action
+
+        # decode day & slot
+        day_idx   = flat_ts // self.num_slots_per_day
+        slot_idx  = flat_ts %  self.num_slots_per_day
+        day       = self.timetable.days[day_idx]
+        time_slot = self.timetable.time_slots[slot_idx]
 
         self.current_step += 1
+        reward = 0
+        done   = False
 
-        # Validate the action
-        valid, penalty = self.is_valid_action(course_index, time_slot, classroom)
+        # validate
+        valid, penalty = self.is_valid_action(course_index, day, time_slot, classroom)
         if not valid:
-            return self.state.flatten(), penalty, False, {}  # Return penalty for invalid move
+            return self.state.flatten(), penalty, False, False, {}
 
-        # Assign course to timetable
-        course = self.timetable.courses[course_index]
-        faculty = next(f for f in self.timetable.faculty if f.id == course.faculty_id)
+        # lookup objects
+        course        = self.timetable.courses[course_index]
+        faculty       = next(f for f in self.timetable.faculty if f.short_name == course.faculty_id)
         classroom_obj = self.timetable.classrooms[classroom]
 
-        # Find day and slot based on index
-        days = list(self.timetable.timetables[next(iter(self.timetable.timetables))].keys())  # Get weekdays
-        slots = list(self.timetable.timetables[next(iter(self.timetable.timetables))][days[0]].keys())  # Get time slots
-        day = days[time_slot // len(slots)]  # Determine day
-        slot = slots[time_slot % len(slots)]  # Determine time slot
+        # identify branch‑semester
+        branch_sem = next(
+            f"{b.branch_name}&{b.semester}"
+            for b in self.timetable.branches
+            if course in b.courses
+        )
+        class_tt = self.timetable.timetables[branch_sem]
 
-        # Create timetable entry
-        entry = TimetableEntry(day, slot, course, faculty, classroom_obj)
+        # determine lab vs theory session
+        is_lab_session = (course.subject_type == "lab" and classroom_obj.type == "lab")
 
-        # Update Student Timetable
-        branch = self.timetable.branch
-        self.timetable.timetables[branch][day][slot] = entry
+        # create entry
+        entry = TimetableEntry(day, time_slot, course, faculty, classroom_obj)
 
-        # Update Faculty Timetable
-        self.timetable.faculty_timetable[day][slot] = entry
+        # ——— schedule it ——
+        if is_lab_session:
+            # occupy two slots
+            next_flat_ts = flat_ts + 1
+            next_slot    = self.timetable.time_slots[slot_idx + 1]
 
-        # Update Classroom Timetable
-        self.timetable.classroom_timetable[day][slot] = entry
+            # branch timetable
+            class_tt.timetable[day][time_slot] = entry
+            class_tt.timetable[day][next_slot] = entry
 
-        # Update state tracking
-        self.state[time_slot, classroom] = course_index
-        self.faculty_schedule[faculty.id].add(time_slot)
-        self.classroom_schedule[classroom_obj.id].add(time_slot)
+            # faculty timetable
+            self.timetable.faculty_timetable.setdefault(faculty.short_name, {})\
+                                            .setdefault(day, {})[time_slot] = entry
+            self.timetable.faculty_timetable[faculty.short_name][day][next_slot] = entry
 
-        reward += penalty  # Add soft constraint reward/penalty
+            # classroom timetable
+            self.timetable.classroom_timetable.setdefault(classroom_obj.code, {})\
+                                               .setdefault(day, {})[time_slot] = entry
+            self.timetable.classroom_timetable[classroom_obj.code][day][next_slot] = entry
 
-        # Check if scheduling is complete
-        if np.count_nonzero(self.state) == self.num_courses or self.current_step >= self.max_steps:
+            # RL state
+            self.state[flat_ts, classroom]      = course_index
+            self.state[next_flat_ts, classroom] = course_index
+
+            # conflict trackers
+            self.faculty_schedule[faculty.short_name].update({(day, time_slot), (day, next_slot)})
+            self.classroom_schedule[classroom_obj.code].update({(day, time_slot), (day, next_slot)})
+
+            # count it
+            self.sessions_scheduled[course_index]['lab'] += 1
+
+        else:
+            # single‑slot theory
+            class_tt.timetable[day][time_slot] = entry
+            self.timetable.faculty_timetable.setdefault(faculty.short_name, {})\
+                                            .setdefault(day, {})[time_slot] = entry
+            self.timetable.classroom_timetable.setdefault(classroom_obj.code, {})\
+                                               .setdefault(day, {})[time_slot] = entry
+
+            self.state[flat_ts, classroom] = course_index
+            self.faculty_schedule[faculty.short_name].add((day, time_slot))
+            self.classroom_schedule[classroom_obj.code].add((day, time_slot))
+
+            # count it
+            self.sessions_scheduled[course_index]['theory'] += 1
+
+        # reward & done
+        reward += penalty
+        if (np.count_nonzero(self.state) == self.num_courses or
+            self.current_step >= self.max_steps):
             done = True
 
-        return self.state.flatten(), reward, done, {}
+        return self.state.flatten(), reward, done, False, {}
 
-    def reset(self):
-        self.state = np.zeros((self.num_slots, self.num_classrooms), dtype=np.int32)
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+
+        # 1) RL state
+        self.state = np.zeros((self.num_flat_slots, self.num_classrooms), dtype=np.int32)
         self.current_step = 0
+
+        # 2) conflict trackers
         self.faculty_schedule.clear()
         self.classroom_schedule.clear()
-        return self.timetable  # Return the updated timetable object
+
+        # 3) session counts
+        self.sessions_scheduled.clear()
+
+        # 4) clear underlying Timetable
+        for class_tt in self.timetable.timetables.values():
+            for d in class_tt.days:
+                for ts in class_tt.time_slots:
+                    class_tt.timetable[d][ts] = None
+        self.timetable.faculty_timetable.clear()
+        self.timetable.classroom_timetable.clear()
+
+        env_logger.info("Environment Reset: New training session started.")
+        return self.state.flatten(), {}
 
     def render(self, mode='human'):
-        """ Prints the timetable in a structured format """
         print("\nTimetable:")
         print("-" * (self.num_classrooms * 15))
-        
-        for slot in range(self.num_slots):
-            row = f"Slot {slot+1}:"
+        for flat_ts in range(self.num_flat_slots):
+            d_i   = flat_ts // self.num_slots_per_day
+            s_i   = flat_ts %  self.num_slots_per_day
+            day   = self.timetable.days[d_i]
+            ts    = self.timetable.time_slots[s_i]
+            row   = f"{day} {ts}:"
             for room in range(self.num_classrooms):
-                course_index = self.state[slot, room]
-                if course_index == 0:
+                ci = self.state[flat_ts, room]
+                if ci == 0:
                     row += "  [Empty]    "
                 else:
-                    course = self.timetable.courses[course_index]
-                    row += f"  [{course.name}]    "
+                    course = self.timetable.courses[ci]
+                    row += f"  [{course.subject_name}]    "
             print(row)
-        
         print("-" * (self.num_classrooms * 15))
-        print("Faculty Schedule:")
-        for faculty_id, slots in self.faculty_schedule.items():
-            print(f"Faculty {faculty_id}: {slots}")
-        print("Classroom Schedule:")
-        for classroom_id, slots in self.classroom_schedule.items():
-            print(f"Classroom {classroom_id}: {slots}")
-        print("-" * (self.num_classrooms * 15))
+
+    def seed(self, seed=None):
+        np.random.seed(seed)
+        random.seed(seed)
+        return [seed]

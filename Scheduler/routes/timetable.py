@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from controllers.timetable import create_timetable,get_timetable_by_id,get_all_timetables,update_timetable,delete_timetable
 
 from models.Timetable import Timetable
@@ -7,8 +7,8 @@ from validation.input_validation import ScheduleInput
 
 router = APIRouter(prefix="/timetable", tags=["Timetable"])
 
-@router.post("/", response_model=None)
-async def create_timetable_route(payload: ScheduleInput):
+@router.post("/", response_model=dict)
+async def create_timetable_route(payload:ScheduleInput=Body(...)):
     """Create a new timetable asynchronously (returns status updates)."""
     # Validate the input data
     job_id = await create_timetable(payload)
