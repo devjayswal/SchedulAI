@@ -69,7 +69,7 @@ class TimetableEnv(gym.Env):
         # conflict trackers
         self.faculty_schedule   = defaultdict(set)  # (day, slot_str)
         self.classroom_schedule = defaultdict(set)  # (day, slot_str)
-
+        self.course_day_scheduled = {i:set() for i in range(self.num_courses)}
         # per-course session counts
         # each value is {'theory': int, 'lab': int}
         self.sessions_scheduled = defaultdict(lambda: {'theory': 0, 'lab': 0})
@@ -182,6 +182,11 @@ class TimetableEnv(gym.Env):
         reward = 0
         done   = False
 
+        #add a quick check for  per day check and tracking.
+        if day in self.course_day_scheduled[course_index]:
+            env_logger.warning(f"Invalid action: Course {course_index} already scheduled on {day}.")
+            return self.state.flatten(), -10, False, False, {}
+
         # validate
         valid, penalty = self.is_valid_action(course_index, day, time_slot, classroom)
         if not valid:
@@ -236,7 +241,7 @@ class TimetableEnv(gym.Env):
             # conflict trackers
             self.faculty_schedule[faculty.short_name].update({(day, time_slot), (day, next_slot)})
             self.classroom_schedule[classroom_obj.code].update({(day, time_slot), (day, next_slot)})
-
+            self.course_day_scheduled[course_index].add(day)
             # count it
             self.sessions_scheduled[course_index]['lab'] += 1
 
@@ -251,7 +256,7 @@ class TimetableEnv(gym.Env):
             self.state[flat_ts, classroom] = course_index
             self.faculty_schedule[faculty.short_name].add((day, time_slot))
             self.classroom_schedule[classroom_obj.code].add((day, time_slot))
-
+            self.course_day_scheduled[course_index].add(day)
             # count it
             self.sessions_scheduled[course_index]['theory'] += 1
 
@@ -316,31 +321,27 @@ class TimetableEnv(gym.Env):
         random.seed(seed)
         return [seed]
     
-
-    def get_valid_actions(self):
-        valid = []
-        for ci in range(self.num_courses):
-            for flat_ts in range(self.num_flat_slots):
-                day = self.timetable.days[flat_ts // self.num_slots_per_day]
-                ts  = self.time_slots[flat_ts % self.num_slots_per_day]
-                for room in range(self.num_classrooms):
-                    ok,_ = self.is_valid_action(ci, day, ts, room)
-                    if ok:
-                        valid.append((ci, flat_ts, room))
-        return valid
-
-    def sample_valid_action(self):
-        return random.choice(self.get_valid_actions())
-    
     def get_action_mask(self):
         n0, n1, n2 = self.action_space.nvec
-
         full = np.zeros((n0, n1, n2), dtype=bool)
-        for ci, flat_ts, rm in self.get_valid_actions():
-            full[ci, flat_ts, rm] = True
 
-        mask0 = full.any(axis=(1, 2))  # shape (n0,)
-        mask1 = full.any(axis=(0, 2))  # shape (n1,)
-        mask2 = full.any(axis=(0, 1))  # shape (n2,)
+        for ci in range(self.num_courses):
+            course = self.timetable.courses[ci]
+            required = course.credits if course.subject_type=="theory" else course.credits
+            done = self.sessions_scheduled[ci]['theory'] + self.sessions_scheduled[ci]['lab']
+            if done >= required:
+                continue
+            for flat_ts in range(self.num_flat_slots):
+                day = self.timetable.days[flat_ts // self.num_slots_per_day]
+                if day in self.course_day_scheduled[ci]:
+                    continue
+                slot = self.time_slots[flat_ts % self.num_slots_per_day]
+                for rm in range(self.num_classrooms):
+                    ok, _ = self.is_valid_action(ci, day, slot, rm)
+                    if ok:
+                        full[ci, flat_ts, rm] = True 
 
-        return np.concatenate([mask0, mask1, mask2])  # list of bool arrays (one per action dim)
+        mask0 = full.any(axis=(1,2))
+        mask1 = full.any(axis=(0,2))
+        mask2 = full.any(axis=(0,1))
+        return np.concatenate([mask0, mask1, mask2])
