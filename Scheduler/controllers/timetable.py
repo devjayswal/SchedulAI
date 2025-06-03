@@ -1,4 +1,3 @@
-from models.Timetable import Timetable
 from utils.database import db
 from bson import ObjectId
 import asyncio
