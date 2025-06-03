@@ -41,10 +41,11 @@ frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
 
-Scheduler/myenv
+Scheduler/virenv
 Scheduler/.env
-*__pycache__/*
+Scheduler/*__pycache__/*
 *.log
 *.sqlite3
 *.pth
 tb_logs
+*.pyc
