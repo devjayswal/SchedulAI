@@ -1,6 +1,6 @@
 from bson import ObjectId
 from Scheduler.utils.database import db
-from models.classroom import ClassroomCreate, ClassroomResponse
+from models.Classroom import ClassroomCreate, ClassroomResponse
 
 classroom_collection = db["classrooms"]
 
