@@ -11,6 +11,7 @@ The Time Table Scheduler is a web-based application designed to automate the cre
 - **User-Friendly Interface**: Intuitive UI with color-coded elements for better usability.
 
 ## Project Structure
+cuda 12.9 
 
 
 
