@@ -9,6 +9,7 @@ from models.Classroom import Classroom
 from models.Timetable import Timetable, TimetableEntry, ClassTimetable
 import random
 import os
+from gymnasium.utils import seeding
 
 
 # Configure Logging
@@ -96,7 +97,7 @@ class TimetableEnv(gym.Env):
             if self.sessions_scheduled[course_index]['theory'] >= credits:
                 env_logger.warning(f"Invalid action: Theory sessions for course {course_index} "
                                    f"already scheduled.")
-                return False, -10
+                return False, -50
 
         else:  # lab course
             # lab session?
@@ -106,42 +107,39 @@ class TimetableEnv(gym.Env):
                 if self.sessions_scheduled[course_index]['lab'] >= 1:
                     env_logger.warning(f"Invalid action: Lab sessions for course {course_index} "
                                        f"already scheduled.")
-                    return False, -10
+                    return False, -50
                 # must fit two consecutive slots
                 if slot_idx >= self.num_slots_per_day - 1:
                     env_logger.warning("Invalid action: Lab session cannot fit into the last slot.")
-                    return False, -10
+                    return False, -50
             else:
                 # theory part of a lab course: credits-1 sessions
                 if self.sessions_scheduled[course_index]['theory'] >= (credits - 1):
                     env_logger.warning(f"Invalid action: Theory sessions for course {course_index} "
                                        f"already scheduled.")
-                    return False, -10
+                    return False, -50
 
         # —— 2) Faculty & classroom conflict checks ——
         # single‑slot check
         if (day, time_slot) in self.faculty_schedule[faculty_id]:
             env_logger.warning(f"Invalid action: Faculty conflict for {faculty_id} at {day}, {time_slot}.")
-            return False, -10
+            return False, -50
         if (day, time_slot) in self.classroom_schedule[classroom_obj.code]:
             env_logger.warning(f"Invalid action: Classroom conflict for {classroom_obj.code} at {day}, {time_slot}.")
-
-            return False, -10
-
-        # consecutive faculty‑break check
+            return False, -50
 
         # consecutive faculty‑break check
         if slot_idx > 0:
             prev_slot = self.time_slots[slot_idx - 1]
             if (day, prev_slot) in self.faculty_schedule[faculty_id]:
                 env_logger.warning(f"Faculty has a break just before/after the selected slot.")
-                return False, -5
+                return False, -50
 
         if slot_idx < self.num_slots_per_day - 1:
             next_slot = self.time_slots[slot_idx + 1]
             if (day, next_slot) in self.faculty_schedule[faculty_id]:
                 env_logger.warning(f"Faculty has a break just before/after the selected slot.")
-                return False, -5
+                return False, -50
 
         # for lab session, also check the *second* slot
         if ctype == "lab" and room_type == "lab":
@@ -150,15 +148,20 @@ class TimetableEnv(gym.Env):
             if (day, second_slot) in self.faculty_schedule[faculty_id] or \
             (day, second_slot) in self.classroom_schedule[classroom_obj.code]:
                 env_logger.warning(f"Faculty has a break just before/after the selected slot.")
-                return False, -10
+                return False, -50
 
         # lunch break
         if time_slot == "12:00-13:00":
             env_logger.warning(f"Invalid action: Lunch break at {day}, {time_slot}.")
-            return False, -10
+            return False, -50
+
+        # NEW: Course-per-day check
+        if day in self.course_day_scheduled[course_index]:
+            env_logger.warning(f"Invalid action: Course {course_index} already scheduled on {day}.")
+            return False, -50
 
         # edge‑slot penalty
-        if time_slot in {"09:00-10:00", "15:00-16:00"}:
+        if time_slot in {"09:00-50:00", "15:00-16:00"}:
             env_logger.warning(f"Invalid action: Edge slot at {day}, {time_slot}.")
             return True, -2
         env_logger.info(f"Action is valid: course_index={course_index}, day={day}, "
@@ -171,6 +174,7 @@ class TimetableEnv(gym.Env):
         """
         env_logger.info(f"Taking step with action: {action}")
         course_index, flat_ts, classroom = action
+        self.current_step += 1
 
         # decode day & slot
         day_idx   = flat_ts // self.num_slots_per_day
@@ -178,21 +182,37 @@ class TimetableEnv(gym.Env):
         day       = self.timetable.days[day_idx]
         time_slot = self.time_slots[slot_idx]
 
-        self.current_step += 1
         reward = 0
         done   = False
 
-        #add a quick check for  per day check and tracking.
+        # If chosen slot is already occupied, find next valid slot
+        if self.state[flat_ts, classroom] != 0:
+            env_logger.info(f"Slot busy at flat_ts={flat_ts}, classroom={classroom}. Finding next valid slot.")
+            next_flat, next_day, next_slot, term = self.find_next_valid(course_index, flat_ts, classroom)
+            if next_flat is None:
+                env_logger.warning(f"No valid slot found for course {course_index}.")
+                return self.state.flatten(), term, False, False, {}
+            # update to next valid
+            flat_ts = next_flat
+            day_idx = flat_ts // self.num_slots_per_day
+            slot_idx = flat_ts % self.num_slots_per_day
+            day = self.timetable.days[day_idx]
+            time_slot = self.time_slots[slot_idx]
+            reward += term
+            env_logger.info(f"Rescheduled to flat_ts={flat_ts}, day={day}, time_slot={time_slot}.")
+
+        # add a quick check for per day check and tracking.
         if day in self.course_day_scheduled[course_index]:
             env_logger.warning(f"Invalid action: Course {course_index} already scheduled on {day}.")
-            return self.state.flatten(), -10, False, False, {}
+            return self.state.flatten(), -50, False, False, {}
 
         # validate
         valid, penalty = self.is_valid_action(course_index, day, time_slot, classroom)
         if not valid:
-            env_logger.warning(f"Invalid action taken: {action}")
+            env_logger.warning(f"Invalid action taken: original action {action}, resolved to {day}, {time_slot}, {classroom}.")
             return self.state.flatten(), penalty, False, False, {}
-        
+        reward += penalty
+
         env_logger.info(f"Scheduling course {course_index} at {day}, {time_slot}, classroom {classroom}.")
 
         # lookup objects
@@ -251,7 +271,7 @@ class TimetableEnv(gym.Env):
             self.timetable.faculty_timetable.setdefault(faculty.short_name, {})\
                                             .setdefault(day, {})[time_slot] = entry
             self.timetable.classroom_timetable.setdefault(classroom_obj.code, {})\
-                                               .setdefault(day, {})[time_slot] = entry
+                                            .setdefault(day, {})[time_slot] = entry
 
             self.state[flat_ts, classroom] = course_index
             self.faculty_schedule[faculty.short_name].add((day, time_slot))
@@ -261,7 +281,6 @@ class TimetableEnv(gym.Env):
             self.sessions_scheduled[course_index]['theory'] += 1
 
         # reward & done
-        reward += penalty
         if (np.count_nonzero(self.state) == self.num_courses or
             self.current_step >= self.max_steps):
             done = True
@@ -271,6 +290,9 @@ class TimetableEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         env_logger.info("Resetting environment...")
+
+        for i in range(self.num_courses):
+            self.course_day_scheduled[i].clear()
 
         # 1) RL state
         self.state = np.zeros((self.num_flat_slots, self.num_classrooms), dtype=np.int32)
@@ -317,31 +339,65 @@ class TimetableEnv(gym.Env):
     def seed(self, seed=None):
         """Set the seed for the environment's random number generator."""
         env_logger.info(f"Seeding environment with seed: {seed}")
-        np.random.seed(seed)
+        self.np_random, seed = seeding.np_random(seed)
         random.seed(seed)
         return [seed]
     
     def get_action_mask(self):
-        n0, n1, n2 = self.action_space.nvec
+        n0, n1, n2 = self.action_space.nvec  # (num_courses, num_flat_slots, num_classrooms)
         full = np.zeros((n0, n1, n2), dtype=bool)
 
         for ci in range(self.num_courses):
             course = self.timetable.courses[ci]
-            required = course.credits if course.subject_type=="theory" else course.credits
-            done = self.sessions_scheduled[ci]['theory'] + self.sessions_scheduled[ci]['lab']
-            if done >= required:
+            required_sessions = course.credits if course.subject_type == "theory" else course.credits
+            done_sessions = (self.sessions_scheduled[ci]['theory']
+                            + self.sessions_scheduled[ci]['lab'])
+            if done_sessions >= required_sessions:
                 continue
-            for flat_ts in range(self.num_flat_slots):
-                day = self.timetable.days[flat_ts // self.num_slots_per_day]
-                if day in self.course_day_scheduled[ci]:
-                    continue
-                slot = self.time_slots[flat_ts % self.num_slots_per_day]
-                for rm in range(self.num_classrooms):
-                    ok, _ = self.is_valid_action(ci, day, slot, rm)
-                    if ok:
-                        full[ci, flat_ts, rm] = True 
 
-        mask0 = full.any(axis=(1,2))
-        mask1 = full.any(axis=(0,2))
-        mask2 = full.any(axis=(0,1))
-        return np.concatenate([mask0, mask1, mask2])
+            for flat_ts in range(self.num_flat_slots):
+                day_name = self.timetable.days[flat_ts // self.num_slots_per_day]
+                # THIS EXACT LINE “masks out” any action that tries to put that course on a day it’s already done
+                if day_name in self.course_day_scheduled[ci]:
+                    continue
+
+                slot_name = self.time_slots[flat_ts % self.num_slots_per_day]
+                for rm in range(self.num_classrooms):
+                    ok, _ = self.is_valid_action(ci, day_name, slot_name, rm)
+                    if ok:
+                        full[ci, flat_ts, rm] = True
+
+        return full  # In SB3 v2.x you can return a 3D boolean mask directly
+
+    def find_next_valid(self, course_index, start_flat_ts, classroom):
+            """
+            Given (course_index, start_flat_ts, classroom), scan forward
+            through flat_ts = start_flat_ts, start_flat_ts+1, … up to the very
+            last flat index. If you hit the end of the last day, you can wrap
+            around to flat_ts = 0 (but usually you only want to scan forward
+            within the same episode).
+            
+            Returns: (new_flat_ts, valid_day, valid_slot_name, valid_reward_term)
+            or (None, None, None, penalty) if no valid placement exists anywhere.
+            """
+            num = self.num_flat_slots
+            for delta in range(1, num):  # start search from next slot
+                ft = (start_flat_ts + delta) % num
+                day_idx  = ft // self.num_slots_per_day
+                slot_idx = ft % self.num_slots_per_day
+                day      = self.timetable.days[day_idx]
+                slot     = self.time_slots[slot_idx]
+
+                # check if course already scheduled on that day → invalid
+                if day in self.course_day_scheduled[course_index]:
+                    continue
+
+                ok, term = self.is_valid_action(course_index, day, slot, classroom)
+                if self.state[ft, classroom] != 0:
+                    continue
+
+                if ok:
+                    return ft, day, slot, term
+
+            # If we scanned all flat_ts and found none:
+            return None, None, None, -20

@@ -4,6 +4,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 from env import TimetableEnv
 from model import load_model, save_model
 from hyperparams import env_config, policy_kwargs, ppo_kwargs, train_config
+from sb3_contrib import MaskablePPO
 
 # 1) Create vectorized environment
 env = make_vec_env(
