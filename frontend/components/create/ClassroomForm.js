@@ -1,27 +1,36 @@
 "use client";
 import { useState } from "react";
-import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger, DialogContent,DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 
-export default function ClassroomForm({ onClassroomAdd }) {
+export default function ClassroomForm({ setClassrooms, classrooms }) {
   const [roomName, setRoomName] = useState("");
   const [roomType, setRoomType] = useState("");
+  const [open, setOpen] = useState(false);
 
   const handleAddRoom = () => {
     if (!roomName.trim() || !roomType) return;
-    onClassroomAdd({ name: roomName, type: roomType });
+   setClassrooms((prev) => [
+      ...prev,
+      { name: roomName.trim(), type: roomType },
+    ]);
     setRoomName("");
+    setOpen(false);
+    setRoomType("");
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>Add Classroom</Button>
       </DialogTrigger>
       <DialogContent>
-        <h3 className="text-lg font-semibold">Add Classroom</h3>
+        <DialogTitle>Add Classroom</DialogTitle>
+        <DialogDescription>
+          Enter the classroom name and select its type.
+        </DialogDescription>
         <Input
           type="text"
           placeholder="Room Name"

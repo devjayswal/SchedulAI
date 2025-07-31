@@ -1,29 +1,40 @@
 "use client";
 import { useState } from "react";
-import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger, DialogContent,DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 
-export default function CourseForm({ branches, onCourseAdd }) {
+export default function CourseForm({ branches, courses, setCourses }) {
   const [courseName, setCourseName] = useState("");
   const [courseCode, setCourseCode] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
+  const [open, setOpen] = useState(false);
 
   const handleAddCourse = () => {
     if (!courseName.trim() || !courseCode.trim() || !selectedBranch) return;
-    onCourseAdd({ name: courseName, code: courseCode, branch: selectedBranch });
+    setCourses((prevCourses) => [
+      ...prevCourses,
+      { name: courseName.trim(), code: courseCode.trim(), branch: selectedBranch },
+    ]);
     setCourseName("");
     setCourseCode("");
+    setSelectedBranch("");
+    setOpen(false);
+
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>Add Course</Button>
       </DialogTrigger>
       <DialogContent>
-        <h3 className="text-lg font-semibold">Add Course</h3>
+        <DialogTitle>Add New Course</DialogTitle>
+        <DialogDescription>
+          Enter the course name, code, and select the branch.
+        </DialogDescription>
+
         <Input
           type="text"
           placeholder="Course Name"
@@ -39,9 +50,16 @@ export default function CourseForm({ branches, onCourseAdd }) {
         <Select onValueChange={setSelectedBranch}>
           <SelectTrigger>Choose Branch</SelectTrigger>
           <SelectContent>
-            {branches.map((branch, index) => (
-              <SelectItem key={index} value={branch}>{branch}</SelectItem>
-            ))}
+            {Array.isArray(branches) && branches.length > 0 ? (
+              branches.map((branch, index) => (
+                <SelectItem key={index} value={branch.name}>
+                  {branch.name}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem disabled>No branches available</SelectItem>
+            )}
+
           </SelectContent>
         </Select>
         <Button onClick={handleAddCourse} className="mt-2">Save</Button>

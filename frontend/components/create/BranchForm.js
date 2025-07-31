@@ -1,16 +1,16 @@
 "use client";
 import { useState } from "react";
-import { Dialog, DialogTrigger, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger, DialogContent, DialogTitle,DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
-export default function BranchForm({ onBranchAdd }) {
+export default function BranchForm({setBranches , branches}) {
   const [branchName, setBranchName] = useState("");
   const [branchSem, setBranchSem] = useState(1); // Default to 1
   const [error, setError] = useState("");
-
+  const [open, setOpen] = useState(false);
   const handleAddBranch = () => {
     if (!branchName.trim()) {
       setError("Branch name cannot be empty.");
@@ -29,20 +29,25 @@ export default function BranchForm({ onBranchAdd }) {
     }
 
     setError(""); // Clear any previous error
-    onBranchAdd(`${branchName} sem ${branchSem}`); // Pass the branch name and semester to the parent component
-    setBranchName("");
-    setBranchSem("1");
+  const newBranch = {
+      name: branchName.trim(),
+      sem: semNumber,
+  }
+    setBranches(prev => [...prev, newBranch]);
+    setOpen(false);
     
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>Add Branch</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent  >
         <DialogTitle>Add Branch</DialogTitle>
-
+        <DialogDescription>
+          Enter the branch short name and semester. 
+          </DialogDescription>
         <Input
           type="text"
           placeholder="Enter branch short name"
