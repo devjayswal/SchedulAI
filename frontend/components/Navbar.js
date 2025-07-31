@@ -11,7 +11,7 @@ export default function Navbar() {
   return (
     <nav className="bg-white shadow-md px-6 py-3 flex justify-between items-center">
       {/* Left - Title */}
-      <h1 className="text-xl font-bold">Scheduler</h1>
+      <h1 className="text-xl font-bold">Schedule AI</h1>
 
       {/* Right - Links */}
       <div className="hidden md:flex space-x-6">

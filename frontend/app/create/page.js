@@ -29,6 +29,7 @@ export default function CreatePage() {
   const timetableId = searchParams.get("id"); // Get ID if passed
 
   // State for storing form data
+  const [timetableData, setTimetableData] = useState({});
   const [branches, setBranches] = useState([]);
   const [courses, setCourses] = useState([]);
   const [faculties, setFaculties] = useState([]);
@@ -43,7 +44,9 @@ export default function CreatePage() {
         setCourses(data.courses);
         setFaculties(data.faculties);
         setClassrooms(data.classrooms);
+        setTimetableData(data.timetable);
         setLoading(false);
+
       });
     } else {
       setLoading(false); // No ID, just allow empty form
@@ -52,7 +55,7 @@ export default function CreatePage() {
 
   // Handle submit
   const handleSubmit = async () => {
-    const timetableData = { branches, courses, faculties, classrooms };
+    const timetableData = {timetableData, branches, courses, faculties, classrooms };
     console.log("Submitting Data:", JSON.stringify(timetableData));
     // Send this JSON to backend via POST request
   };
@@ -81,7 +84,7 @@ export default function CreatePage() {
               <CardTitle>Branch Details</CardTitle>
             </CardHeader>
             <CardContent>
-              <BranchForm onBranchAdd={(newBranch) => setBranches([...branches, { name: newBranch }])}  />
+              <BranchForm setBranches = {setBranches} branches = {branches}  />
             </CardContent>
           </Card>
 
@@ -113,12 +116,19 @@ export default function CreatePage() {
           </Card>
 
           {/* Submit Button */}
-          <Button 
+
+          {timetableId ?(<Button 
             className="w-full mt-6 bg-blue-600 hover:bg-blue-700 transition-all"
             onClick={handleSubmit}
           >
-            💾 Save Timetable
-          </Button>
+            Modify Timetable
+          </Button>) :(<Button 
+            className="w-full mt-6 bg-blue-600 hover:bg-blue-700 transition-all"
+            onClick={handleSubmit}
+          >
+            Create Timetable
+          </Button>)}
+          
         </>
       )}
     </div>

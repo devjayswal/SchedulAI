@@ -1,30 +1,39 @@
 "use client";
 import { useState } from "react";
-import { Dialog, DialogTrigger, DialogContent,DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger, DialogContent,DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multiselect"; // ✅ Correct import
 
-export default function FacultyForm({ courses, onFacultyAdd }) {
+export default function FacultyForm({ courses,faculties ,setFaculties }) {
   const [facultyName, setFacultyName] = useState("");
   const [shortName, setShortName] = useState("");
   const [selectedCourses, setSelectedCourses] = useState([]);
+  const [open, setOpen] = useState(false);
 
   const handleAddFaculty = () => {
     if (!facultyName.trim() || !shortName.trim() || selectedCourses.length === 0) return;
-    onFacultyAdd({ name: facultyName, shortName, courses: selectedCourses });
+    setFaculties((prev)=>[...prev, {
+      name: facultyName,
+      shortName: shortName,
+      courses: selectedCourses,
+    }]);
     setFacultyName("");
     setShortName("");
     setSelectedCourses([]);
+    setOpen(false);
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>Add Faculty</Button>
       </DialogTrigger>
       <DialogContent>
       <DialogTitle>Add Faculty</DialogTitle>
+      <DialogDescription>
+          Enter the faculty's full name, short name, and select courses.
+        </DialogDescription>
       <Input
           type="text"
           placeholder="Full Name"
