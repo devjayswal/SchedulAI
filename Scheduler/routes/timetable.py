@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Body
-from controllers.timetable import create_timetable,get_timetable_by_id,get_all_timetables,update_timetable,delete_timetable
+from controllers.timetable import create_timetable,get_timetable_by_id,get_all_timetables,update_timetable,delete_timetable,get_timetable_data,export_timetable_csv,regenerate_timetable
 
 from models.Timetable import Timetable
 from validation.input_validation import ScheduleInput
@@ -21,6 +21,30 @@ async def get_timetable_route(timetable_id: str):
     if not timetable:
         raise HTTPException(status_code=404, detail="Timetable not found")
     return timetable
+
+@router.get("/{timetable_id}/data", response_model=None)
+async def get_timetable_data_route(timetable_id: str):
+    """Retrieve complete timetable data including all timetables."""
+    timetable_data = await get_timetable_data(timetable_id)
+    if not timetable_data:
+        raise HTTPException(status_code=404, detail="Timetable not found")
+    return timetable_data
+
+@router.get("/{timetable_id}/export/{timetable_type}", response_model=None)
+async def export_timetable_route(timetable_id: str, timetable_type: str = "master"):
+    """Export timetable data to CSV format."""
+    export_data = await export_timetable_csv(timetable_id, timetable_type)
+    if not export_data:
+        raise HTTPException(status_code=404, detail="Timetable not found")
+    return export_data
+
+@router.post("/{timetable_id}/regenerate", response_model=None)
+async def regenerate_timetable_route(timetable_id: str):
+    """Regenerate a timetable with the same input data."""
+    result = await regenerate_timetable(timetable_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Timetable not found")
+    return result
 
 @router.get("/")
 async def get_all_timetables_route():

@@ -65,6 +65,61 @@ async def get_timetable_by_id(timetable_id: str):
         return None
     return {"id": str(timetable["_id"]), "name": timetable["name"], "description": timetable.get("description")}
 
+# Get Full Timetable Data
+async def get_timetable_data(timetable_id: str):
+    """Get complete timetable data including all timetables (student, faculty, classroom)"""
+    timetable = await timetable_collection.find_one({"_id": ObjectId(timetable_id)})
+    if not timetable:
+        return None
+    
+    # Return the complete timetable data
+    return {
+        "id": str(timetable["_id"]),
+        "name": timetable.get("name", "Unnamed Timetable"),
+        "description": timetable.get("description", ""),
+        "data": timetable.get("data", {}),
+        "created_at": timetable.get("created_at"),
+        "status": timetable.get("status", "unknown")
+    }
+
+# Export Timetable to CSV
+async def export_timetable_csv(timetable_id: str, timetable_type: str = "master"):
+    """Export timetable data to CSV format"""
+    timetable = await timetable_collection.find_one({"_id": ObjectId(timetable_id)})
+    if not timetable:
+        return None
+    
+    # This would generate CSV content based on the timetable data
+    # For now, return a placeholder response
+    return {
+        "message": f"CSV export for {timetable_type} timetable",
+        "filename": f"{timetable_type}_timetable.csv",
+        "data": "CSV content would be generated here"
+    }
+
+# Regenerate Timetable
+async def regenerate_timetable(timetable_id: str):
+    """Regenerate a timetable using the same input data but with fresh AI training"""
+    timetable = await timetable_collection.find_one({"_id": ObjectId(timetable_id)})
+    if not timetable:
+        return None
+    
+    # Get the original input data
+    original_data = timetable.get("data", {})
+    
+    # Create a new job for regeneration
+    job_id = create_job("timetable_regenerate", original_data)
+    queue = get_queue(job_id)
+    
+    # Start the regeneration process
+    asyncio.create_task(_run_job(job_id, queue, original_data))
+    
+    return {
+        "message": "Timetable regeneration started",
+        "job_id": job_id,
+        "status": "regenerating"
+    }
+
 # Get All Timetable IDs
 async def get_all_timetables():
     timetables = await timetable_collection.find({}, {"_id": 1}).to_list(100)

@@ -143,11 +143,15 @@ class TimetableEnv(gym.Env):
 
         # for lab session, also check the *second* slot
         if ctype == "lab" and room_type == "lab":
-            # slot_idx < num_slots_per_day - 1 is already guaranteed above
-            second_slot = self.time_slots[slot_idx + 1]
-            if (day, second_slot) in self.faculty_schedule[faculty_id] or \
-            (day, second_slot) in self.classroom_schedule[classroom_obj.code]:
-                env_logger.warning(f"Faculty has a break just before/after the selected slot.")
+            # Check if we can fit two consecutive slots
+            if slot_idx < self.num_slots_per_day - 1:
+                second_slot = self.time_slots[slot_idx + 1]
+                if (day, second_slot) in self.faculty_schedule[faculty_id] or \
+                (day, second_slot) in self.classroom_schedule[classroom_obj.code]:
+                    env_logger.warning(f"Faculty has a break just before/after the selected slot.")
+                    return False, -50
+            else:
+                env_logger.warning("Lab session cannot fit in last slot of day.")
                 return False, -50
 
         # lunch break
@@ -160,13 +164,66 @@ class TimetableEnv(gym.Env):
             env_logger.warning(f"Invalid action: Course {course_index} already scheduled on {day}.")
             return False, -50
 
-        # edge‑slot penalty
-        if time_slot in {"09:00-50:00", "15:00-16:00"}:
-            env_logger.warning(f"Invalid action: Edge slot at {day}, {time_slot}.")
+        # —— 3) Additional Hard Constraints from SRS ——
+        
+        # Max 8 classes per day constraint
+        daily_classes = sum(1 for slot in self.time_slots 
+                           if (day, slot) in self.faculty_schedule[faculty_id] or 
+                              (day, slot) in self.classroom_schedule[classroom_obj.code])
+        if daily_classes >= 8:
+            env_logger.warning(f"Invalid action: Maximum 8 classes per day exceeded for {day}.")
+            return False, -50
+
+        # Non-editable cells constraint (reserved slots)
+        reserved_slots = ["12:00-13:00"]  # Lunch break is already handled above
+        if time_slot in reserved_slots:
+            env_logger.warning(f"Invalid action: Reserved slot {time_slot} cannot be scheduled.")
+            return False, -50
+
+        # Faculty consecutive classes in same branch/semester constraint
+        # This would require additional tracking of branch/semester per faculty
+        # For now, we'll implement a basic version
+        if self._has_consecutive_faculty_classes(faculty_id, day, time_slot):
+            env_logger.warning(f"Invalid action: Faculty {faculty_id} has consecutive classes.")
+            return False, -50
+
+        # —— 4) Soft Constraints (penalties) ——
+        
+        # Edge slot penalty (minimize classes during specific time slots)
+        edge_slots = ["09:00-10:00", "16:00-17:00", "17:00-18:00"]
+        if time_slot in edge_slots:
+            env_logger.info(f"Edge slot penalty applied for {time_slot}.")
             return True, -2
+
+        # Faculty load balancing (soft constraint)
+        faculty_load = len([slot for day_slots in self.faculty_schedule[faculty_id].values() 
+                           for slot in day_slots])
+        if faculty_load > 6:  # More than 6 classes per week
+            env_logger.info(f"Faculty load penalty applied for {faculty_id}.")
+            return True, -1
+
         env_logger.info(f"Action is valid: course_index={course_index}, day={day}, "
                         f"time_slot={time_slot}, classroom={classroom}")
         return True, 1
+
+    def _has_consecutive_faculty_classes(self, faculty_id, day, time_slot):
+        """Check if faculty has consecutive classes in the same branch/semester."""
+        slot_idx = self.time_slots.index(time_slot)
+        
+        # Check previous slot
+        if slot_idx > 0:
+            prev_slot = self.time_slots[slot_idx - 1]
+            if (day, prev_slot) in self.faculty_schedule[faculty_id]:
+                return True
+        
+        # Check next slot
+        if slot_idx < self.num_slots_per_day - 1:
+            next_slot = self.time_slots[slot_idx + 1]
+            if (day, next_slot) in self.faculty_schedule[faculty_id]:
+                return True
+        
+        return False
+
     def step(self, action):
         """Take a step in the environment.
         action = (course_index, flat_ts, classroom)
@@ -206,7 +263,8 @@ class TimetableEnv(gym.Env):
             env_logger.info(f"Slot busy at {flat_ts},{classroom}, finding next valid.")
             next_flat, next_day, next_slot, term = self.find_next_valid(ci, flat_ts, classroom)
             if next_flat is None:
-                return self.state.flatten(), term, False, False, {}
+                env_logger.warning(f"No valid placement found for course {ci}, ending episode early.")
+                return self.state.flatten(), term, True, False, {}  # End episode if no valid placement
             flat_ts, day, time_slot = next_flat, next_day, next_slot
             reward += term
 
@@ -217,6 +275,14 @@ class TimetableEnv(gym.Env):
         # 6) Validate constraints
         valid, penalty = self.is_valid_action(ci, day, time_slot, classroom)
         if not valid:
+            # Check if this course is already fully scheduled
+            course = self.timetable.courses[ci]
+            required_sessions = course.credits
+            completed_sessions = (self.sessions_scheduled[ci]['theory'] + 
+                                self.sessions_scheduled[ci]['lab'])
+            if completed_sessions >= required_sessions:
+                env_logger.info(f"Course {ci} already fully scheduled, ending episode.")
+                return self.state.flatten(), penalty, True, False, {}
             return self.state.flatten(), penalty, False, False, {}
         reward += penalty
 
@@ -240,17 +306,26 @@ class TimetableEnv(gym.Env):
         # Update trackers
         self.course_day_scheduled[ci].add(day)
         if course.subject_type == "lab" and classroom_obj.type == "lab":
-            # two-slot lab
-            next_flat_ts = flat_ts + 1
-            next_slot    = self.time_slots[slot_idx + 1]
-            self.state[next_flat_ts, classroom] = course_index
-            self.course_day_scheduled[ci].add(day)
-            self.sessions_scheduled[ci]['lab'] += 1
-            # fill both slots in timetables...
-            class_tt.timetable[day][time_slot] = entry
-            class_tt.timetable[day][next_slot]  = entry
-            self.faculty_schedule[faculty.short_name].update({(day, time_slot), (day, next_slot)})
-            self.classroom_schedule[classroom_obj.code].update({(day, time_slot), (day, next_slot)})
+            # two-slot lab - check if we can fit in current day
+            if slot_idx >= self.num_slots_per_day - 1:
+                env_logger.warning(f"Lab session cannot fit in last slot of day. Skipping lab scheduling.")
+                # Schedule as theory session instead
+                self.sessions_scheduled[ci]['theory'] += 1
+                class_tt.timetable[day][time_slot] = entry
+                self.faculty_schedule[faculty.short_name].add((day, time_slot))
+                self.classroom_schedule[classroom_obj.code].add((day, time_slot))
+            else:
+                # two-slot lab
+                next_flat_ts = flat_ts + 1
+                next_slot    = self.time_slots[slot_idx + 1]
+                self.state[next_flat_ts, classroom] = course_index
+                self.course_day_scheduled[ci].add(day)
+                self.sessions_scheduled[ci]['lab'] += 1
+                # fill both slots in timetables...
+                class_tt.timetable[day][time_slot] = entry
+                class_tt.timetable[day][next_slot]  = entry
+                self.faculty_schedule[faculty.short_name].update({(day, time_slot), (day, next_slot)})
+                self.classroom_schedule[classroom_obj.code].update({(day, time_slot), (day, next_slot)})
         else:
             # single-slot theory
             self.sessions_scheduled[ci]['theory'] += 1
@@ -258,10 +333,19 @@ class TimetableEnv(gym.Env):
             self.faculty_schedule[faculty.short_name].add((day, time_slot))
             self.classroom_schedule[classroom_obj.code].add((day, time_slot))
 
-        # 8) Check done
-        if np.count_nonzero(self.state) >= self.num_courses or self.current_step >= self.max_steps:
+        # 8) Check done - count completed courses instead of non-zero slots
+        completed_courses = 0
+        for ci in range(self.num_courses):
+            course = self.timetable.courses[ci]
+            required_sessions = course.credits
+            completed_sessions = (self.sessions_scheduled[ci]['theory'] + 
+                                self.sessions_scheduled[ci]['lab'])
+            if completed_sessions >= required_sessions:
+                completed_courses += 1
+        
+        if completed_courses >= self.num_courses or self.current_step >= self.max_steps:
             done = True
-            env_logger.info("Episode done.")
+            env_logger.info(f"Episode done. Completed {completed_courses}/{self.num_courses} courses.")
 
         return self.state.flatten(), reward, done, False, {}
 
@@ -309,7 +393,7 @@ class TimetableEnv(gym.Env):
                 if ci == 0:
                     row += "  [Empty]    "
                 else:
-                    course = self.timetable.courses[ci]
+                    course = self.timetable.courses[ci-1]  # ci is shifted index, need to convert back
                     row += f"  [{course.subject_name}]    "
             print(row)
         print("-" * (self.num_classrooms * 15))
@@ -373,7 +457,9 @@ class TimetableEnv(gym.Env):
             or (None, None, None, penalty) if no valid placement exists anywhere.
             """
             num = self.num_flat_slots
-            for delta in range(1, num):  # start search from next slot
+            max_search_attempts = min(num, 50)  # Limit search to prevent infinite loops
+            
+            for delta in range(1, max_search_attempts):  # start search from next slot
                 ft = (start_flat_ts + delta) % num
                 day_idx  = ft // self.num_slots_per_day
                 slot_idx = ft % self.num_slots_per_day
@@ -384,12 +470,14 @@ class TimetableEnv(gym.Env):
                 if day in self.course_day_scheduled[course_index]:
                     continue
 
-                ok, term = self.is_valid_action(course_index, day, slot, classroom)
+                # check if slot is already occupied
                 if self.state[ft, classroom] != 0:
                     continue
 
+                ok, term = self.is_valid_action(course_index, day, slot, classroom)
                 if ok:
                     return ft, day, slot, term
 
             # If we scanned all flat_ts and found none:
+            env_logger.warning(f"No valid placement found for course {course_index} after {max_search_attempts} attempts")
             return None, None, None, -20

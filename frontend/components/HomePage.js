@@ -52,6 +52,9 @@ export default function HomePage() {
               >
                 <span>{item.name}</span>
                 <div className="space-x-2">
+                  <Button onClick={() => router.push(`/view?id=${item.id}`)} size="sm" variant="outline">
+                    View
+                  </Button>
                   <Button onClick={() => router.push(`/create?id=${item.id}`)} size="sm">
                     Modify
                   </Button>
