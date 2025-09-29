@@ -1,13 +1,36 @@
 {
-    "weekdays": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-    "time_slots": [
-      "09:00-10:00",
-      "10:00-11:00",
-      "11:00-12:00",
-      "12:00-13:00",
-      "14:00-15:00",
-      "15:00-16:00"
-    ],
+    "schedule_config": {
+      "weekdays": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      "time_slots": [
+        "09:00-10:00",
+        "10:00-11:00",
+        "11:00-12:00",
+        "12:00-13:00",
+        "14:00-15:00",
+        "15:00-16:00"
+      ],
+      "lunch_break": "12:00-13:00",
+      "max_daily_slots": 6,
+      "max_weekly_slots": 30
+    },
+    "infrastructure_config": {
+      "default_classroom_count": 5,
+      "default_lab_count": 2,
+      "default_theory_room_count": 3,
+      "classroom_capacity": {
+        "theory": 50,
+        "lab": 30
+      }
+    },
+    "training_config": {
+      "learning_rate": 3e-4,
+      "batch_size": 64,
+      "n_steps": 1024,
+      "n_epochs": 4,
+      "total_timesteps": 500000,
+      "use_enhanced_rewards": true,
+      "use_curriculum_learning": true
+    },
     "branches": [
       {
         "branch_name": "AIML",
@@ -87,21 +110,33 @@
     "classrooms": [
       {
         "id": "CR101",
-        "type": "theory"
+        "name": "Lecture Hall 1",
+        "type": "theory",
+        "capacity": 50
       },
       {
         "id": "CR102",
-        "type": "theory"
+        "name": "Lecture Hall 2",
+        "type": "theory",
+        "capacity": 45
+      },
+      {
+        "id": "CR103",
+        "name": "Lecture Hall 3",
+        "type": "theory",
+        "capacity": 40
       },
       {
         "id": "LAB201",
-        "type": "lab"
+        "name": "Computer Lab 1",
+        "type": "lab",
+        "capacity": 30
       },
       {
         "id": "LAB202",
-        "type": "lab"
-
-        
+        "name": "Computer Lab 2",
+        "type": "lab",
+        "capacity": 25
       }
     ]
   }

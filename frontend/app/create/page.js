@@ -5,6 +5,9 @@ import BranchForm from "@/components/create/BranchForm";
 import CourseForm from "@/components/create/CourseForm";
 import FacultyForm from "@/components/create/FacultyForm";
 import ClassroomForm from "@/components/create/ClassroomForm";
+import ConfigForm from "@/components/create/ConfigForm";
+import JobStatusIndicator from "@/components/status/JobStatusIndicator";
+import JobDetailsModal from "@/components/status/JobDetailsModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -75,6 +78,11 @@ export default function CreatePage() {
   const [importMode, setImportMode] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importError, setImportError] = useState("");
+  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
+  const [dynamicConfig, setDynamicConfig] = useState({});
+  const [showJobStatus, setShowJobStatus] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // Fetch timetable if an ID is passed
   useEffect(() => {
@@ -162,8 +170,11 @@ export default function CreatePage() {
     setSubmitSuccess(false);
 
     const finalData = {
-      weekdays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-      time_slots: [
+      // Include dynamic configuration if provided
+      ...dynamicConfig,
+      // Legacy fields for backward compatibility
+      weekdays: dynamicConfig.schedule_config?.weekdays || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      time_slots: dynamicConfig.schedule_config?.time_slots || [
         "09:00-10:00",
         "10:00-11:00", 
         "11:00-12:00",
@@ -206,6 +217,7 @@ export default function CreatePage() {
         setJobId(result.job_id);
         setSubmitSuccess(true);
         setSubmitError("");
+        setShowJobStatus(true);
         
         // Reset form after successful submission (optional)
         if (!timetableId) {
@@ -240,14 +252,24 @@ export default function CreatePage() {
             {timetableId ? "Modify an existing timetable" : "Create a new timetable from scratch"}
           </p>
         </div>
-        <Button
-          onClick={() => setImportMode(!importMode)}
-          variant="outline"
-          className="flex items-center space-x-2"
-        >
-          <Upload className="h-4 w-4" />
-          <span>Import Data</span>
-        </Button>
+        <div className="flex space-x-2">
+          <Button
+            onClick={() => setImportMode(!importMode)}
+            variant="outline"
+            className="flex items-center space-x-2"
+          >
+            <Upload className="h-4 w-4" />
+            <span>Import Data</span>
+          </Button>
+          <Button
+            onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
+            variant="outline"
+            className="flex items-center space-x-2"
+          >
+            <span>⚙️</span>
+            <span>Advanced Config</span>
+          </Button>
+        </div>
       </div>
 
       {/* Import Section */}
@@ -284,6 +306,14 @@ export default function CreatePage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Advanced Configuration Section */}
+      {showAdvancedConfig && (
+        <ConfigForm 
+          onConfigChange={setDynamicConfig}
+          initialConfig={dynamicConfig}
+        />
       )}
 
       {/* Success Message */}
@@ -377,6 +407,29 @@ export default function CreatePage() {
           
         </>
       )}
+
+      {/* Job Status Indicator */}
+      {showJobStatus && jobId && (
+        <div className="mt-6">
+          <JobStatusIndicator 
+            jobId={jobId}
+            onViewDetails={(jobId) => {
+              setSelectedJobId(jobId);
+              setShowDetailsModal(true);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Job Details Modal */}
+      <JobDetailsModal
+        jobId={selectedJobId}
+        isOpen={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false);
+          setSelectedJobId(null);
+        }}
+      />
     </div>
   );
 }

@@ -16,13 +16,16 @@ export default function Navbar() {
       {/* Right - Links */}
       <div className="hidden md:flex space-x-6">
         <Button variant="ghost" asChild>
+          <Link href="/create">Create</Link>
+        </Button>
+        <Button variant="ghost" asChild>
+          <Link href="/status">Status</Link>
+        </Button>
+        <Button variant="ghost" asChild>
+          <Link href="/view">View</Link>
+        </Button>
+        <Button variant="ghost" asChild>
           <Link href="https://github.com">GitHub</Link>
-        </Button>
-        <Button variant="ghost" asChild>
-          <Link href="/docs">Docs</Link>
-        </Button>
-        <Button variant="ghost" asChild>
-          <Link href="/contact">Contact</Link>
         </Button>
 
         {/* User Dropdown */}
@@ -47,13 +50,16 @@ export default function Navbar() {
       {menuOpen && (
         <div className="absolute top-16 right-6 bg-white shadow-lg rounded-md p-4 flex flex-col space-y-4 md:hidden">
           <Button variant="ghost" asChild>
+            <Link href="/create">Create</Link>
+          </Button>
+          <Button variant="ghost" asChild>
+            <Link href="/status">Status</Link>
+          </Button>
+          <Button variant="ghost" asChild>
+            <Link href="/view">View</Link>
+          </Button>
+          <Button variant="ghost" asChild>
             <Link href="https://github.com">GitHub</Link>
-          </Button>
-          <Button variant="ghost" asChild>
-            <Link href="/docs">Docs</Link>
-          </Button>
-          <Button variant="ghost" asChild>
-            <Link href="/contact">Contact</Link>
           </Button>
           <Button variant="ghost" className="w-8 h-8 rounded-full bg-gray-300"></Button>
         </div>

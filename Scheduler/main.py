@@ -10,6 +10,7 @@ from utils.log_generator import log_generator
 import time
 from utils.job_manager import create_job, get_queue, set_status, get_status
 from routes.timetable import router as timetable_router
+from routes.status import router as status_router
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -33,6 +34,7 @@ app.add_middleware(
 # app.include_router(faculty_router)
 # app.include_router(classroom_router)
 app.include_router(timetable_router)
+app.include_router(status_router)
 
 @app.get("/")
 async def root():

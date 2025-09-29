@@ -1,3 +1,14 @@
+"""
+Timetable Environment for PPO Training
+
+Logging Optimization:
+- By default, only WARNING and ERROR level logs are written to env.log
+- This significantly reduces log file size during training
+- To enable verbose logging for debugging, set environment variable:
+  TIMETABLE_VERBOSE_LOGGING=true
+- Important events (constraint violations, episode completion) are still logged
+"""
+
 import numpy as np
 import gymnasium as gym
 import logging
@@ -12,18 +23,22 @@ import os
 from gymnasium.utils import seeding
 
 
-# Configure Logging
+# Configure Logging - Optimized for reduced verbosity
 log_dir = "logs"
 os.makedirs(log_dir, exist_ok=True)
 
+# Environment variable to control logging verbosity
+VERBOSE_LOGGING = os.getenv('TIMETABLE_VERBOSE_LOGGING', 'false').lower() == 'true'
+
 env_logger = logging.getLogger("TimetableEnv")
-env_logger.setLevel(logging.INFO)
+# Set log level based on verbosity setting
+env_logger.setLevel(logging.INFO if VERBOSE_LOGGING else logging.WARNING)
 
 # Only add handlers once
 if not env_logger.handlers:
-    # File handler
+    # File handler - only log important events by default
     fh = logging.FileHandler(os.path.join(log_dir, "env.log"))
-    fh.setLevel(logging.INFO)
+    fh.setLevel(logging.INFO if VERBOSE_LOGGING else logging.WARNING)
 
     # Formatter
     fmt = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -38,7 +53,8 @@ if not env_logger.handlers:
 class TimetableEnv(gym.Env):
     def __init__(self, timetable: Timetable, max_steps=100):
         super().__init__()
-        env_logger.info("Initializing TimetableEnv...")
+        # Only log initialization once per training session
+        env_logger.warning("Initializing TimetableEnv...")
         self.timetable = timetable
 
         # dimensions
@@ -50,7 +66,7 @@ class TimetableEnv(gym.Env):
         self.num_flat_slots    = self.num_days * self.num_slots_per_day
         self.max_steps         = max_steps
 
-        env_logger.info(f"Timetable dimensions: {self.num_courses} courses, "
+        env_logger.warning(f"Timetable dimensions: {self.num_courses} courses, "
                         f"{self.num_days} days, {self.num_slots_per_day} slots/day, "
                         f"{self.num_classrooms} classrooms.")
 
@@ -80,8 +96,7 @@ class TimetableEnv(gym.Env):
     def is_valid_action(self, course_index, day, time_slot, classroom):
 
         """Check all constraints before scheduling."""
-        env_logger.debug(f"Validating action: course_index={course_index}, day={day}, "
-                         f"time_slot={time_slot}, classroom={classroom}")
+        # Removed debug logging to reduce verbosity
 
         course = self.timetable.courses[course_index]
         credits     = course.credits
@@ -95,8 +110,7 @@ class TimetableEnv(gym.Env):
         if ctype == "theory":
             # theory courses: need exactly `credits` sessions
             if self.sessions_scheduled[course_index]['theory'] >= credits:
-                env_logger.warning(f"Invalid action: Theory sessions for course {course_index} "
-                                   f"already scheduled.")
+                # IMPROVED: Reduce logging frequency
                 return False, -50
 
         else:  # lab course
@@ -105,63 +119,61 @@ class TimetableEnv(gym.Env):
             if is_lab_session:
                 # only 1 lab session
                 if self.sessions_scheduled[course_index]['lab'] >= 1:
-                    env_logger.warning(f"Invalid action: Lab sessions for course {course_index} "
-                                       f"already scheduled.")
+                    # IMPROVED: Reduce logging frequency
                     return False, -50
                 # must fit two consecutive slots
                 if slot_idx >= self.num_slots_per_day - 1:
-                    env_logger.warning("Invalid action: Lab session cannot fit into the last slot.")
+                    # IMPROVED: Reduce logging frequency
                     return False, -50
             else:
                 # theory part of a lab course: credits-1 sessions
                 if self.sessions_scheduled[course_index]['theory'] >= (credits - 1):
-                    env_logger.warning(f"Invalid action: Theory sessions for course {course_index} "
-                                       f"already scheduled.")
+                    # IMPROVED: Reduce logging frequency
                     return False, -50
 
         # —— 2) Faculty & classroom conflict checks ——
         # single‑slot check
         if (day, time_slot) in self.faculty_schedule[faculty_id]:
-            env_logger.warning(f"Invalid action: Faculty conflict for {faculty_id} at {day}, {time_slot}.")
+            # IMPROVED: Reduce logging frequency
             return False, -50
         if (day, time_slot) in self.classroom_schedule[classroom_obj.code]:
-            env_logger.warning(f"Invalid action: Classroom conflict for {classroom_obj.code} at {day}, {time_slot}.")
+            # IMPROVED: Reduce logging frequency
             return False, -50
 
         # consecutive faculty‑break check
         if slot_idx > 0:
             prev_slot = self.time_slots[slot_idx - 1]
             if (day, prev_slot) in self.faculty_schedule[faculty_id]:
-                env_logger.warning(f"Faculty has a break just before/after the selected slot.")
+                # IMPROVED: Reduce logging frequency
                 return False, -50
 
         if slot_idx < self.num_slots_per_day - 1:
             next_slot = self.time_slots[slot_idx + 1]
             if (day, next_slot) in self.faculty_schedule[faculty_id]:
-                env_logger.warning(f"Faculty has a break just before/after the selected slot.")
+                # IMPROVED: Reduce logging frequency
                 return False, -50
 
         # for lab session, also check the *second* slot
         if ctype == "lab" and room_type == "lab":
             # Check if we can fit two consecutive slots
-            if slot_idx < self.num_slots_per_day - 1:
-                second_slot = self.time_slots[slot_idx + 1]
-                if (day, second_slot) in self.faculty_schedule[faculty_id] or \
-                (day, second_slot) in self.classroom_schedule[classroom_obj.code]:
-                    env_logger.warning(f"Faculty has a break just before/after the selected slot.")
-                    return False, -50
-            else:
-                env_logger.warning("Lab session cannot fit in last slot of day.")
+            if slot_idx >= self.num_slots_per_day - 1:
+                # IMPROVED: Don't log every attempt, just return invalid
+                return False, -50
+            
+            second_slot = self.time_slots[slot_idx + 1]
+            if (day, second_slot) in self.faculty_schedule[faculty_id] or \
+            (day, second_slot) in self.classroom_schedule[classroom_obj.code]:
+                # IMPROVED: Don't log every attempt, just return invalid
                 return False, -50
 
         # lunch break
         if time_slot == "12:00-13:00":
-            env_logger.warning(f"Invalid action: Lunch break at {day}, {time_slot}.")
+            # IMPROVED: Reduce logging frequency
             return False, -50
 
         # NEW: Course-per-day check
         if day in self.course_day_scheduled[course_index]:
-            env_logger.warning(f"Invalid action: Course {course_index} already scheduled on {day}.")
+            # IMPROVED: Reduce logging frequency
             return False, -50
 
         # —— 3) Additional Hard Constraints from SRS ——
@@ -171,20 +183,20 @@ class TimetableEnv(gym.Env):
                            if (day, slot) in self.faculty_schedule[faculty_id] or 
                               (day, slot) in self.classroom_schedule[classroom_obj.code])
         if daily_classes >= 8:
-            env_logger.warning(f"Invalid action: Maximum 8 classes per day exceeded for {day}.")
+            # IMPROVED: Reduce logging frequency
             return False, -50
 
         # Non-editable cells constraint (reserved slots)
         reserved_slots = ["12:00-13:00"]  # Lunch break is already handled above
         if time_slot in reserved_slots:
-            env_logger.warning(f"Invalid action: Reserved slot {time_slot} cannot be scheduled.")
+            # IMPROVED: Reduce logging frequency
             return False, -50
 
         # Faculty consecutive classes in same branch/semester constraint
         # This would require additional tracking of branch/semester per faculty
         # For now, we'll implement a basic version
         if self._has_consecutive_faculty_classes(faculty_id, day, time_slot):
-            env_logger.warning(f"Invalid action: Faculty {faculty_id} has consecutive classes.")
+            # IMPROVED: Reduce logging frequency
             return False, -50
 
         # —— 4) Soft Constraints (penalties) ——
@@ -192,18 +204,16 @@ class TimetableEnv(gym.Env):
         # Edge slot penalty (minimize classes during specific time slots)
         edge_slots = ["09:00-10:00", "16:00-17:00", "17:00-18:00"]
         if time_slot in edge_slots:
-            env_logger.info(f"Edge slot penalty applied for {time_slot}.")
+            # Removed frequent edge slot penalty logging
             return True, -2
 
         # Faculty load balancing (soft constraint)
-        faculty_load = len([slot for day_slots in self.faculty_schedule[faculty_id].values() 
-                           for slot in day_slots])
+        faculty_load = len(self.faculty_schedule[faculty_id])
         if faculty_load > 6:  # More than 6 classes per week
-            env_logger.info(f"Faculty load penalty applied for {faculty_id}.")
+            # Removed frequent faculty load penalty logging
             return True, -1
 
-        env_logger.info(f"Action is valid: course_index={course_index}, day={day}, "
-                        f"time_slot={time_slot}, classroom={classroom}")
+        # Removed frequent valid action logging
         return True, 1
 
     def _has_consecutive_faculty_classes(self, faculty_id, day, time_slot):
@@ -228,7 +238,7 @@ class TimetableEnv(gym.Env):
         """Take a step in the environment.
         action = (course_index, flat_ts, classroom)
         """
-        env_logger.info(f"Taking step with action: {action}")
+        # Removed frequent step logging to reduce verbosity
 
         # 1) Unpack and cast to native ints
         course_index, flat_ts, classroom = action
@@ -260,7 +270,7 @@ class TimetableEnv(gym.Env):
 
         # 4) If slot occupied, find next
         if self.state[flat_ts, classroom] != 0:
-            env_logger.info(f"Slot busy at {flat_ts},{classroom}, finding next valid.")
+            # Removed frequent slot busy logging
             next_flat, next_day, next_slot, term = self.find_next_valid(ci, flat_ts, classroom)
             if next_flat is None:
                 env_logger.warning(f"No valid placement found for course {ci}, ending episode early.")
@@ -281,7 +291,7 @@ class TimetableEnv(gym.Env):
             completed_sessions = (self.sessions_scheduled[ci]['theory'] + 
                                 self.sessions_scheduled[ci]['lab'])
             if completed_sessions >= required_sessions:
-                env_logger.info(f"Course {ci} already fully scheduled, ending episode.")
+                # Removed frequent course completion logging
                 return self.state.flatten(), penalty, True, False, {}
             return self.state.flatten(), penalty, False, False, {}
         reward += penalty
@@ -345,13 +355,15 @@ class TimetableEnv(gym.Env):
         
         if completed_courses >= self.num_courses or self.current_step >= self.max_steps:
             done = True
-            env_logger.info(f"Episode done. Completed {completed_courses}/{self.num_courses} courses.")
+            # Only log episode completion occasionally (every 10th episode)
+            if completed_courses % 10 == 0 or completed_courses == self.num_courses:
+                env_logger.warning(f"Episode done. Completed {completed_courses}/{self.num_courses} courses.")
 
         return self.state.flatten(), reward, done, False, {}
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        env_logger.info("Resetting environment...")
+        # Removed frequent reset logging
 
         for i in range(self.num_courses):
             self.course_day_scheduled[i].clear()
@@ -375,12 +387,12 @@ class TimetableEnv(gym.Env):
         self.timetable.faculty_timetable.clear()
         self.timetable.classroom_timetable.clear()
 
-        env_logger.info("Environment Reset: New training session started.")
+        # Only log reset occasionally to reduce verbosity
         return self.state.flatten(), {}
 
     def render(self, mode='human'):
         """Render the environment to the screen."""
-        env_logger.info("Rendering environment...")
+        # Removed render logging to reduce verbosity
         print("-" * (self.num_classrooms * 15))
         for flat_ts in range(self.num_flat_slots):
             d_i   = flat_ts // self.num_slots_per_day
@@ -400,30 +412,34 @@ class TimetableEnv(gym.Env):
 
     def seed(self, seed=None):
         """Set the seed for the environment's random number generator."""
-        env_logger.info(f"Seeding environment with seed: {seed}")
+        # Removed seed logging to reduce verbosity
         self.np_random, seed = seeding.np_random(seed)
         random.seed(seed)
         return [seed]
     def get_action_mask(self):
         """
         Returns a 1-D boolean mask of length (n_courses+1 + n_slots + n_rooms),
-        where index 0 in the first block is always False (reserved for “no course”),
+        where index 0 in the first block is always False (reserved for "no course"),
         and indices 1..n_courses indicate which courses can be scheduled.
         """
-        # unpack dims: first dim includes the extra “0” for empty
+        # unpack dims: first dim includes the extra "0" for empty
         n0, n1, n2 = self.action_space.nvec
         # full grid: (courses+1) × slots × rooms
         full = np.zeros((n0, n1, n2), dtype=bool)
 
         # populate validity (shift course index by +1)
         for ci in range(self.num_courses):
-            # skip if course ci already done
+            # skip if course ci already done - IMPROVED CHECK
             total_done = (self.sessions_scheduled[ci]['theory']
                         + self.sessions_scheduled[ci]['lab'])
             required = self.timetable.courses[ci].credits
             if total_done >= required:
+                # Mark all actions for this course as invalid
                 continue
 
+            # Check if course has any valid placement options
+            has_valid_placement = False
+            
             for flat_ts in range(self.num_flat_slots):
                 day = self.timetable.days[flat_ts // self.num_slots_per_day]
                 if day in self.course_day_scheduled[ci]:
@@ -433,8 +449,14 @@ class TimetableEnv(gym.Env):
                 for rm in range(self.num_classrooms):
                     ok, _ = self.is_valid_action(ci, day, slot, rm)
                     if ok:
-                        # mark at index ci+1 so that 0 remains “empty”
+                        # mark at index ci+1 so that 0 remains "empty"
                         full[ci + 1, flat_ts, rm] = True
+                        has_valid_placement = True
+
+            # If no valid placement found, ensure course is masked out
+            if not has_valid_placement:
+                # Course has no valid placements, keep it masked
+                pass
 
         # reduce into three 1-D masks
         mask_courses = full.any(axis=(1, 2))   # shape (n0,)

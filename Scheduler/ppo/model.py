@@ -13,7 +13,7 @@ def save_model(model: PPO, path: str = "ppo_timetable.pth"):
 
 def load_model(env, path="ppo_timetable.pth", policy_kwargs=None, **ppo_kwargs) -> PPO:
     """Load a PPO model, restoring policy and optimizer if available."""
-    model = PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, **ppo_kwargs, verbose=1, device=device)
+    model = PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, **ppo_kwargs, verbose=1)
     
     try:
         checkpoint = torch.load(path)

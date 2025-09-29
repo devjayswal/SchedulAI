@@ -4,6 +4,7 @@ import asyncio
 from utils.job_manager import create_job, get_queue, set_status, get_status
 from ppo.train import run_training
 from serializers.jsonToClass import jsonToClass
+from utils.config_processor import config_processor
 
 timetable_collection = db["Timetables"]
 
@@ -46,6 +47,18 @@ async def _run_job(job_id: str, queue: asyncio.Queue, data):
 
 # Create Timetable (Async Status Update)
 async def create_timetable(timetable_data: dict):  # Accepts raw dictionary
+    # Process dynamic configuration
+    processed_config = config_processor.process_request(timetable_data)
+    
+    # Extract environment and training configs
+    env_config = config_processor.get_environment_config(processed_config)
+    training_config = config_processor.get_training_config(processed_config)
+    
+    # Add processed configs to the data
+    timetable_data["processed_config"] = processed_config
+    timetable_data["env_config"] = env_config
+    timetable_data["training_config"] = training_config
+    
     # Serialize the data to class if needed
     timetable_object = jsonToClass(timetable_data)
 

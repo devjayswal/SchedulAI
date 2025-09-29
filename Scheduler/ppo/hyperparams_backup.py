@@ -5,10 +5,10 @@ policy_kwargs = dict(
 )
 
 ppo_kwargs = dict(
-    learning_rate=3e-4,  # Increased for faster learning
-    n_steps=1024,        # Reduced for more frequent updates
-    batch_size=64,       # Reduced for better gradient estimates
-    n_epochs=4,          # Reduced to prevent overfitting
+    learning_rate=1e-4,
+    n_steps=2048,
+    batch_size=256,
+    n_epochs=10,
     gamma=0.99,
     gae_lambda=0.95,
     clip_range=0.2,
@@ -29,7 +29,7 @@ train_config = {
 
 env_config = {
     "num_courses": 5,
-    "num_slots": 6,       # KEEP ORIGINAL - These are hard constraints from college schedule
-    "num_classrooms": 5,  # Increased from 3 to reduce constraint conflicts
+    "num_slots": 6,
+    "num_classrooms": 3,
     "n_envs": 4
 }
