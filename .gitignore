@@ -41,11 +41,73 @@ frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
 
-Scheduler/virenv
+# Python virtual environment
+Scheduler/virenv/
+
+# Environment files
 Scheduler/.env
-Scheduler/*__pycache__/*
-*.log
-*.sqlite3
-*.pth
-tb_logs
+Scheduler/.env.*
+
+# Python cache files
+Scheduler/*__pycache__/
+Scheduler/**/__pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Model files and checkpoints
+*.pth
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.ckpt
+*.pt
+*.bin
+*.safetensors
+
+# Model directories
+Scheduler/models/checkpoints/
+Scheduler/models/best_model/
+Scheduler/models/cnn_best_model/
+Scheduler/models/continuous/
+Scheduler/models/enhanced/
+Scheduler/models/legacy/
+Scheduler/models/*_best_model*/
+Scheduler/models/continuous_best_model*/
+Scheduler/models/enhanced_best_model*/
+
+# Log files and directories
+*.log
+Scheduler/logs/
+Scheduler/tb_logs/
+Scheduler/Scheduler/logs/
+Scheduler/Scheduler/tb_logs/
+Scheduler/Scheduler/models/
+
+# Database files
+*.sqlite3
+*.db
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp

@@ -1,7 +1,0 @@
-{
-  "job_id": "a5550564b4204a79b5b64ec537e96047",
-  "checkpoint_type": "continuous",
-  "created_at": "2025-09-29T18:08:22.134116",
-  "episode_count": 0,
-  "training_steps": 0
-}
