@@ -13,52 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, AlertCircle, Loader2, Upload, FileText } from "lucide-react";
-
-// Mock function to simulate fetching from backend
-const fetchTimetable = async (id) => {
-  console.log(`Fetching timetable for ID: ${id}`);
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        branches: [
-          {
-            branch_name: "CSE",
-            semester: 4,
-            courses: []
-          }
-        ],
-        courses: [
-          {
-            branch_name: "CSE",
-            semester: 4,
-            courses: [
-              {
-                subject_code: "CS201",
-                subject_name: "Data Structures",
-                subject_type: "theory",
-                credits: 3,
-                faculty_id: "F01"
-              }
-            ]
-          }
-        ],
-        faculty: [
-          {
-            id: "F01",
-            name: "Dr. Smith",
-            email: "smith@institute.edu"
-          }
-        ],
-        classrooms: [
-          {
-            id: "CR101",
-            type: "theory"
-          }
-        ],
-      });
-    }, 1000);
-  });
-};
+import { timetableApi, apiUtils } from "@/lib/api";
 
 export default function CreatePage() {
   const searchParams = useSearchParams();
@@ -87,14 +42,32 @@ export default function CreatePage() {
   // Fetch timetable if an ID is passed
   useEffect(() => {
     if (timetableId) {
-      fetchTimetable(timetableId).then((data) => {
-        setBranches(data.branches);
-        setCourses(data.courses);
-        setFaculty(data.faculty);
-        setClassrooms(data.classrooms);
-        setTimetableData(data.timetable);
-        setLoading(false);
-      });
+      const fetchTimetableData = async () => {
+        try {
+          setLoading(true);
+          const data = await timetableApi.getData(timetableId);
+          
+          // Extract data from the API response
+          const timetableData = data.data || {};
+          const branches = timetableData.branches || [];
+          const courses = timetableData.courses || [];
+          const faculty = timetableData.faculty || [];
+          const classrooms = timetableData.classrooms || [];
+          
+          setBranches(branches);
+          setCourses(courses);
+          setFaculty(faculty);
+          setClassrooms(classrooms);
+          setTimetableData(timetableData);
+        } catch (error) {
+          console.error('Error fetching timetable data:', error);
+          setSubmitError(apiUtils.handleError(error, 'Failed to load timetable data'));
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchTimetableData();
     } else {
       setLoading(false); // No ID, just allow empty form
     }
@@ -188,28 +161,17 @@ export default function CreatePage() {
     };
 
     try {
-      // Get API URL from environment variable or use default
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-      const endpoint = timetableId ? `${apiUrl}/timetable/${timetableId}` : `${apiUrl}/timetable/`;
-      const method = timetableId ? "PUT" : "POST";
-
       console.log("Submitting Data:", JSON.stringify(finalData, null, 2));
-      console.log("API Endpoint:", endpoint);
 
-      const response = await fetch(endpoint, {
-        method: method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(finalData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`);
+      let result;
+      if (timetableId) {
+        // Update existing timetable
+        result = await timetableApi.update(timetableId, finalData);
+      } else {
+        // Create new timetable
+        result = await timetableApi.create(finalData);
       }
 
-      const result = await response.json();
       console.log("Success:", result);
       
       // Handle async job response
@@ -235,7 +197,7 @@ export default function CreatePage() {
 
     } catch (error) {
       console.error("Error submitting timetable:", error);
-      setSubmitError(error.message || "Failed to create timetable. Please try again.");
+      setSubmitError(apiUtils.handleError(error, "Failed to create timetable. Please try again."));
       setSubmitSuccess(false);
     } finally {
       setSubmitting(false);

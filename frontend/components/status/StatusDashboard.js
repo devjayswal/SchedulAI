@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Badge } from '../ui/badge';
+import { Alert, AlertDescription } from '../ui/alert';
 import { 
   RefreshCw, 
   Activity, 
@@ -11,10 +12,12 @@ import {
   Clock, 
   Loader2,
   Trash2,
-  Eye
+  Eye,
+  AlertCircle
 } from 'lucide-react';
 import JobStatusCard from './JobStatusCard';
 import JobDetailsModal from './JobDetailsModal';
+import { statusApi, apiUtils } from '@/lib/api';
 
 const StatusDashboard = () => {
   const [jobs, setJobs] = useState([]);
@@ -27,18 +30,11 @@ const StatusDashboard = () => {
 
   const fetchJobs = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-      const response = await fetch(`${apiUrl}/status/jobs`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch jobs');
-      }
-      
-      const data = await response.json();
+      const data = await statusApi.getAllJobs();
       setJobs(data.jobs || []);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      setError(apiUtils.handleError(err, 'Failed to fetch jobs'));
     } finally {
       setLoading(false);
     }
@@ -48,18 +44,15 @@ const StatusDashboard = () => {
     if (jobId) {
       // Refresh specific job
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-        const response = await fetch(`${apiUrl}/status/job/${jobId}`);
-        if (response.ok) {
-          const jobData = await response.json();
-          setJobs(prevJobs => 
-            prevJobs.map(job => 
-              job.job_id === jobId ? jobData : job
-            )
-          );
-        }
+        const jobData = await statusApi.getJobStatus(jobId);
+        setJobs(prevJobs => 
+          prevJobs.map(job => 
+            job.job_id === jobId ? jobData : job
+          )
+        );
       } catch (err) {
         console.error('Failed to refresh job:', err);
+        setError(apiUtils.handleError(err, 'Failed to refresh job'));
       }
     } else {
       // Refresh all jobs
@@ -69,16 +62,11 @@ const StatusDashboard = () => {
 
   const handleCleanup = async (jobId) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-      const response = await fetch(`${apiUrl}/status/job/${jobId}`, {
-        method: 'DELETE'
-      });
-      
-      if (response.ok) {
-        setJobs(prevJobs => prevJobs.filter(job => job.job_id !== jobId));
-      }
+      await statusApi.cleanupJob(jobId);
+      setJobs(prevJobs => prevJobs.filter(job => job.job_id !== jobId));
     } catch (err) {
       console.error('Failed to cleanup job:', err);
+      setError(apiUtils.handleError(err, 'Failed to cleanup job'));
     }
   };
 
@@ -173,12 +161,15 @@ const StatusDashboard = () => {
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <p className="text-red-800">Error: {error}</p>
-          <Button variant="outline" size="sm" onClick={fetchJobs} className="mt-2">
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <Button variant="outline" size="sm" onClick={fetchJobs} className="mt-2 ml-2">
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Status Summary */}

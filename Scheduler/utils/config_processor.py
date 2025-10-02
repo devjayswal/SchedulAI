@@ -55,26 +55,55 @@ class ConfigProcessor:
         processed_config = {}
         
         # Process schedule configuration
-        processed_config["schedule_config"] = self._process_schedule_config(
-            request_data.get("schedule_config", {})
-        )
+        schedule_config = request_data.get("schedule_config", {})
+        if schedule_config is not None and hasattr(schedule_config, 'dict'):
+            schedule_config = schedule_config.dict()
+        elif schedule_config is not None and hasattr(schedule_config, 'model_dump'):
+            schedule_config = schedule_config.model_dump()
+        processed_config["schedule_config"] = self._process_schedule_config(schedule_config)
         
         # Process infrastructure configuration
+        infra_config = request_data.get("infrastructure_config", {})
+        if infra_config is not None and hasattr(infra_config, 'dict'):
+            infra_config = infra_config.dict()
+        elif infra_config is not None and hasattr(infra_config, 'model_dump'):
+            infra_config = infra_config.model_dump()
+        
+        classrooms = request_data.get("classrooms", []) or []
+        if classrooms and hasattr(classrooms[0], 'dict'):
+            classrooms = [c.dict() for c in classrooms]
+        elif classrooms and hasattr(classrooms[0], 'model_dump'):
+            classrooms = [c.model_dump() for c in classrooms]
+            
         processed_config["infrastructure_config"] = self._process_infrastructure_config(
-            request_data.get("infrastructure_config", {}),
-            request_data.get("classrooms", [])
+            infra_config, classrooms
         )
         
         # Process training configuration
-        processed_config["training_config"] = self._process_training_config(
-            request_data.get("training_config", {})
-        )
+        training_config = request_data.get("training_config", {})
+        if training_config is not None and hasattr(training_config, 'dict'):
+            training_config = training_config.dict()
+        elif training_config is not None and hasattr(training_config, 'model_dump'):
+            training_config = training_config.model_dump()
+        processed_config["training_config"] = self._process_training_config(training_config)
         
-        # Add core data
+        # Add core data (convert Pydantic models to dicts if needed)
+        branches = request_data.get("branches", [])
+        if branches and hasattr(branches[0], 'dict'):
+            branches = [b.dict() for b in branches]
+        elif branches and hasattr(branches[0], 'model_dump'):
+            branches = [b.model_dump() for b in branches]
+            
+        faculty = request_data.get("faculty", [])
+        if faculty and hasattr(faculty[0], 'dict'):
+            faculty = [f.dict() for f in faculty]
+        elif faculty and hasattr(faculty[0], 'model_dump'):
+            faculty = [f.model_dump() for f in faculty]
+        
         processed_config.update({
-            "branches": request_data.get("branches", []),
-            "faculty": request_data.get("faculty", []),
-            "classrooms": request_data.get("classrooms", [])
+            "branches": branches,
+            "faculty": faculty,
+            "classrooms": classrooms
         })
         
         # Handle legacy fields for backward compatibility
@@ -88,7 +117,8 @@ class ConfigProcessor:
     def _process_schedule_config(self, schedule_config: Dict[str, Any]) -> Dict[str, Any]:
         """Process schedule configuration with validation."""
         config = self.defaults["schedule_config"].copy()
-        config.update(schedule_config)
+        if schedule_config is not None:
+            config.update(schedule_config)
         
         # Validate time slots
         if len(config["time_slots"]) < 3:
@@ -105,7 +135,8 @@ class ConfigProcessor:
     def _process_infrastructure_config(self, infra_config: Dict[str, Any], classrooms: List[Dict]) -> Dict[str, Any]:
         """Process infrastructure configuration with classroom analysis."""
         config = self.defaults["infrastructure_config"].copy()
-        config.update(infra_config)
+        if infra_config is not None:
+            config.update(infra_config)
         
         # Analyze actual classrooms if provided
         if classrooms:
@@ -129,7 +160,8 @@ class ConfigProcessor:
     def _process_training_config(self, training_config: Dict[str, Any]) -> Dict[str, Any]:
         """Process training configuration with validation."""
         config = self.defaults["training_config"].copy()
-        config.update(training_config)
+        if training_config is not None:
+            config.update(training_config)
         
         # Validate learning rate
         if config["learning_rate"] <= 0 or config["learning_rate"] > 1:

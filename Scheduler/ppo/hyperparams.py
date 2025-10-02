@@ -15,7 +15,7 @@ ppo_kwargs = dict(
     ent_coef=0.01,
     max_grad_norm=0.5,
     tensorboard_log="./tb_logs/",
-    device="cpu"  # Force CPU usage to avoid GPU warning
+    device="auto"  # Automatically use GPU if available, fallback to CPU
 )
 
 train_config = {

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Body
-from controllers.timetable import create_timetable,get_timetable_by_id,get_all_timetables,update_timetable,delete_timetable,get_timetable_data,export_timetable_csv,regenerate_timetable
+from controllers.timetable import create_timetable,get_timetable_by_id,get_all_timetables,update_timetable,delete_timetable,get_timetable_data,export_timetable_csv,regenerate_timetable,get_generated_timetable_by_job_id
 
 from models.Timetable import Timetable
 from validation.input_validation import ScheduleInput
@@ -9,10 +9,59 @@ router = APIRouter(prefix="/timetable", tags=["Timetable"])
 
 @router.post("/", response_model=dict)
 async def create_timetable_route(payload:ScheduleInput=Body(...)):
-    """Create a new timetable asynchronously (returns status updates)."""
+    """Create a new timetable using continuous training (default and optimized)."""
     # Validate the input data
-    job_id = await create_timetable(payload)
-    return {"job_id": job_id, "status": "job created"}
+    result = await create_timetable(payload)
+    return {
+        "job_id": result["job_id"], 
+        "status": "continuous training job created", 
+        "continuous_training": result["continuous_training"],
+        "enhanced_training": result["enhanced_training"],
+        "auto_detected_cnn": result["auto_detected_cnn"],
+        "training_method": result["training_method"]
+    }
+
+@router.post("/continuous", response_model=dict)
+async def create_continuous_timetable_route(payload:ScheduleInput=Body(...)):
+    """Create a new timetable using continuous training system."""
+    # Force continuous training
+    if hasattr(payload, 'training_config'):
+        payload.training_config = payload.training_config or {}
+        payload.training_config['use_continuous_training'] = True
+        payload.training_config['use_enhanced_training'] = True
+    else:
+        payload.training_config = {'use_continuous_training': True, 'use_enhanced_training': True}
+    
+    result = await create_timetable(payload)
+    return {"job_id": result["job_id"], "status": "continuous training job created", "continuous_training": True}
+
+@router.post("/enhanced", response_model=dict)
+async def create_enhanced_timetable_route(payload:ScheduleInput=Body(...)):
+    """Create a new timetable using enhanced training system."""
+    # Force enhanced training
+    if hasattr(payload, 'training_config'):
+        payload.training_config = payload.training_config or {}
+        payload.training_config['use_enhanced_training'] = True
+        payload.training_config['use_continuous_training'] = False
+    else:
+        payload.training_config = {'use_enhanced_training': True, 'use_continuous_training': False}
+    
+    result = await create_timetable(payload)
+    return {"job_id": result["job_id"], "status": "enhanced training job created", "enhanced_training": True}
+
+@router.post("/legacy", response_model=dict)
+async def create_legacy_timetable_route(payload:ScheduleInput=Body(...)):
+    """Create a new timetable using legacy training system."""
+    # Force legacy training
+    if hasattr(payload, 'training_config'):
+        payload.training_config = payload.training_config or {}
+        payload.training_config['use_enhanced_training'] = False
+        payload.training_config['use_continuous_training'] = False
+    else:
+        payload.training_config = {'use_enhanced_training': False, 'use_continuous_training': False}
+    
+    result = await create_timetable(payload)
+    return {"job_id": result["job_id"], "status": "legacy training job created", "enhanced_training": False}
 
 @router.get("/{timetable_id}", response_model=None)
 async def get_timetable_route(timetable_id: str):
@@ -45,6 +94,14 @@ async def regenerate_timetable_route(timetable_id: str):
     if not result:
         raise HTTPException(status_code=404, detail="Timetable not found")
     return result
+
+@router.get("/generated/{job_id}")
+async def get_generated_timetable_route(job_id: str):
+    """Get the generated timetable by job ID."""
+    timetable = await get_generated_timetable_by_job_id(job_id)
+    if not timetable:
+        raise HTTPException(status_code=404, detail="Generated timetable not found")
+    return timetable
 
 @router.get("/")
 async def get_all_timetables_route():

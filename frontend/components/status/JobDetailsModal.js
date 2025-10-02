@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Alert, AlertDescription } from '../ui/alert';
 import { 
   Clock, 
   CheckCircle, 
@@ -13,8 +14,10 @@ import {
   Timer,
   Activity,
   FileText,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
+import { statusApi, apiUtils } from '@/lib/api';
 
 const JobDetailsModal = ({ jobId, isOpen, onClose }) => {
   const [jobDetails, setJobDetails] = useState(null);
@@ -29,24 +32,15 @@ const JobDetailsModal = ({ jobId, isOpen, onClose }) => {
     setError(null);
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-      
       // Fetch job details
-      const detailsResponse = await fetch(`${apiUrl}/status/job/${jobId}`);
-      if (!detailsResponse.ok) {
-        throw new Error('Failed to fetch job details');
-      }
-      const details = await detailsResponse.json();
+      const details = await statusApi.getJobStatus(jobId);
       setJobDetails(details);
       
       // Fetch logs
-      const logsResponse = await fetch(`${apiUrl}/status/job/${jobId}/logs?limit=100`);
-      if (logsResponse.ok) {
-        const logsData = await logsResponse.json();
-        setLogs(logsData.logs || []);
-      }
+      const logsData = await statusApi.getJobLogs(jobId, 100);
+      setLogs(logsData.logs || []);
     } catch (err) {
-      setError(err.message);
+      setError(apiUtils.handleError(err, 'Failed to fetch job details'));
     } finally {
       setLoading(false);
     }
@@ -167,6 +161,21 @@ const JobDetailsModal = ({ jobId, isOpen, onClose }) => {
                   </p>
                 </div>
               </div>
+
+              {jobDetails.status === 'completed' && (
+                <div className="space-y-2">
+                  <h3 className="font-medium">Actions</h3>
+                  <Button 
+                    onClick={() => {
+                      window.open(`/view?job_id=${jobId}`, '_blank');
+                    }}
+                    className="w-full"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    View Generated Timetable
+                  </Button>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

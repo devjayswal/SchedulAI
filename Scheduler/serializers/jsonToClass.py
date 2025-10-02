@@ -12,49 +12,70 @@ def jsonToClass(json_data):
     timetable = Timetable(id=str(uuid.uuid4()))
     print(f"Created Timetable instance with ID: {timetable.id}")
 
+    # Handle both dictionary and Pydantic model inputs
+    def get_value(data, key):
+        """Get value from either dict or Pydantic model."""
+        if isinstance(data, dict):
+            return data.get(key)
+        else:
+            return getattr(data, key, None)
+
+    def get_attr(obj, attr):
+        """Get attribute from either dict or Pydantic model."""
+        if isinstance(obj, dict):
+            return obj.get(attr)
+        else:
+            return getattr(obj, attr, None)
+
     # Add time slots first before using them in ClassTimetable
     print("Processing Time Slots...")
-    timetable.time_slots = json_data.time_slots  # ✅ Corrected for Pydantic
+    timetable.time_slots = get_value(json_data, "time_slots") or []
 
     # Add faculty members
     print("Processing faculty members...")
+    faculty_data = get_value(json_data, "faculty") or []
     timetable.faculty.extend(
-        Faculty(short_name=f.id, full_name=f.name) for f in json_data.faculty  # ✅ Corrected for Pydantic
+        Faculty(short_name=get_attr(f, "id"), full_name=get_attr(f, "name")) for f in faculty_data
     )
 
     # Add classrooms
     print("Processing classrooms...")
+    classroom_data = get_value(json_data, "classrooms") or []
     timetable.classrooms.extend(
-        Classroom(code=c.id, type=c.type) for c in json_data.classrooms  # ✅ Corrected for Pydantic
+        Classroom(code=get_attr(c, "id"), type=get_attr(c, "type")) for c in classroom_data
     )
 
     # Process branches and courses
     print("Processing branches and courses...")
-    for branch in json_data.branches:  # ✅ Corrected for Pydantic
-        print(f"Processing Branch: {branch.branch_name}, Semester: {branch.semester}")
+    branches_data = get_value(json_data, "branches") or []
+    for branch in branches_data:
+        branch_name = get_attr(branch, "branch_name")
+        branch_semester = get_attr(branch, "semester")
+        print(f"Processing Branch: {branch_name}, Semester: {branch_semester}")
 
         # Convert courses inside branch
+        courses_data = get_attr(branch, "courses") or []
         courses = [
             Course(
-                subject_code=course.subject_code,
-                subject_name=course.subject_name,
-                subject_type=course.subject_type,
-                credits=course.credits,
-                faculty_id=course.faculty_id
+                subject_code=get_attr(course, "subject_code"),
+                subject_name=get_attr(course, "subject_name"),
+                subject_type=get_attr(course, "subject_type"),
+                credits=get_attr(course, "credits"),
+                faculty_id=get_attr(course, "faculty_id")
             )
-            for course in branch.courses  # ✅ Corrected for Pydantic
+            for course in courses_data
         ]
 
         # Add courses to `timetable.courses` (global list for all branches)
         timetable.courses.extend(courses)  
 
         # Create a branch object
-        branch_obj = Branch(branch_name=branch.branch_name, semester=branch.semester, courses=courses)
+        branch_obj = Branch(branch_name=branch_name, semester=branch_semester, courses=courses)
         timetable.branches.append(branch_obj)
 
         # Initialize ClassTimetable object with correct indexing
-        branch_sem = f"{branch.branch_name}&{branch.semester}"
-        timetable.timetables[branch_sem] = ClassTimetable(branch.branch_name, branch.semester, timetable.time_slots, ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
+        branch_sem = f"{branch_name}&{branch_semester}"
+        timetable.timetables[branch_sem] = ClassTimetable(branch_name, branch_semester, timetable.time_slots, ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
 
     print("Finished processing. Returning Timetable instance.")
     return timetable

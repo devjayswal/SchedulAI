@@ -1,4 +1,5 @@
 import os
+import logging
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 # from routes.users import router as user_router
@@ -17,16 +18,42 @@ from fastapi.responses import FileResponse
 # Load environment variables
 load_dotenv()
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 PORT = int(os.getenv("PORT", 8000))  # Default to 8000 if not found
 
 app = FastAPI(title="Timetable Scheduler API", version="1.0.0")
 app.mount("/static", StaticFiles(directory="public"), name="static")
 
+@app.on_event("startup")
+async def startup_event():
+    """Test database connection on startup"""
+    try:
+        from utils.database import test_connection
+        connection_ok = await test_connection()
+        if connection_ok:
+            logger.info("✅ Database connection successful")
+        else:
+            logger.error("❌ Database connection failed")
+    except Exception as e:
+        logger.error(f"❌ Database connection error: {e}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+        "*"  # Allow all origins for development
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -39,6 +66,34 @@ app.include_router(status_router)
 @app.get("/")
 async def root():
     return FileResponse(os.path.join("public", "index.html"))
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint with database status"""
+    try:
+        from utils.database import test_connection
+        db_status = await test_connection()
+        return {
+            "status": "healthy" if db_status else "unhealthy",
+            "database": "connected" if db_status else "disconnected",
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "error",
+            "error": str(e),
+            "timestamp": time.time()
+        }
+
+@app.get("/cors-test")
+async def cors_test():
+    """Simple CORS test endpoint"""
+    return {
+        "message": "CORS is working!",
+        "timestamp": time.time(),
+        "origin_allowed": True
+    }
 
 @app.get("/logs/{job_id}")
 async def stream_logs(job_id: str):

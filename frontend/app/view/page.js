@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Download, RefreshCw, ArrowLeft } from "lucide-react";
+import { timetableApi, apiUtils } from "@/lib/api";
 
 export default function View() {
     const searchParams = useSearchParams();
@@ -15,11 +16,40 @@ export default function View() {
     const [timetableData, setTimetableData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [jobId, setJobId] = useState(null);
     const [activeTab, setActiveTab] = useState("master");
     const [editingCell, setEditingCell] = useState(null);
     const [editMode, setEditMode] = useState(false);
     const [editedTimetable, setEditedTimetable] = useState(null);
     const [regenerating, setRegenerating] = useState(false);
+
+    // Fetch generated timetable data
+    const fetchGeneratedTimetable = async (jobId) => {
+        try {
+            setLoading(true);
+            const data = await timetableApi.getGeneratedByJobId(jobId);
+            setTimetableData(data);
+            setError(null);
+        } catch (err) {
+            setError(apiUtils.handleError(err, 'Failed to fetch generated timetable'));
+            console.error('Error fetching timetable:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Check if we have a job ID in the URL
+    useEffect(() => {
+        const jobIdParam = searchParams.get("job_id");
+        if (jobIdParam) {
+            setJobId(jobIdParam);
+            fetchGeneratedTimetable(jobIdParam);
+        } else {
+            // Fallback to sample data if no job ID
+            setTimetableData(sampleData);
+            setLoading(false);
+        }
+    }, [searchParams]);
 
     // Sample data structure for demonstration
     const sampleData = {
@@ -73,15 +103,13 @@ export default function View() {
     const fetchTimetableData = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`http://localhost:8000/timetable/${id}/data`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch timetable data');
-            }
-            const data = await response.json();
+            const data = await timetableApi.getData(id);
             setTimetableData(data);
+            setError(null);
         } catch (err) {
-            setError(err.message);
-            // Fallback to sample data
+            setError(apiUtils.handleError(err, 'Failed to fetch timetable data'));
+            console.error('Error fetching timetable data:', err);
+            // Fallback to sample data for demonstration
             setTimetableData(sampleData);
         } finally {
             setLoading(false);
@@ -256,25 +284,15 @@ export default function View() {
 
         try {
             setRegenerating(true);
-            const response = await fetch(`http://localhost:8000/timetable/${id}/regenerate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to regenerate timetable');
-            }
-
-            const result = await response.json();
+            const result = await timetableApi.regenerate(id);
             alert(`Timetable regeneration started! Job ID: ${result.job_id}`);
             
             // Optionally refresh the timetable data after regeneration
             // fetchTimetableData();
             
         } catch (err) {
-            alert(`Error regenerating timetable: ${err.message}`);
+            const errorMessage = apiUtils.handleError(err, 'Failed to regenerate timetable');
+            alert(`Error regenerating timetable: ${errorMessage}`);
         } finally {
             setRegenerating(false);
         }
